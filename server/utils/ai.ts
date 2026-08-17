@@ -236,3 +236,127 @@ Geef voor elke taak uit "TE HERPLANNEN TAKEN" een wijziging terug met hetzelfde 
 
   return JSON.parse(text)
 }
+
+export interface TelegramTrajectInput {
+  id: string
+  naam: string
+}
+
+export interface TelegramDoelInput {
+  id: string
+  naam: string
+}
+
+export interface TelegramClassificatie {
+  transcript: string
+  type: 'nieuwe_taak' | 'update_traject' | 'nieuw_traject' | 'journal' | 'onduidelijk'
+  nieuweTaak: {
+    tekst: string
+    trajectId: string | null
+    categorie: 'zakelijk' | 'prive'
+    geschatteDuur: number | null
+    geplandOp: string | null
+    tijd: string | null
+  } | null
+  updateTraject: {
+    trajectId: string
+    nieuweActie: string
+  } | null
+  nieuwTraject: {
+    naam: string
+  } | null
+  journalInhoud: string | null
+  verduidelijkendeVraag: string | null
+}
+
+const telegramClassificatieSchema = {
+  type: Type.OBJECT,
+  properties: {
+    transcript: { type: Type.STRING, description: 'Letterlijke (getranscribeerde) tekst van het bericht' },
+    type: { type: Type.STRING, enum: ['nieuwe_taak', 'update_traject', 'nieuw_traject', 'journal', 'onduidelijk'] },
+    nieuweTaak: {
+      type: Type.OBJECT,
+      nullable: true,
+      properties: {
+        tekst: { type: Type.STRING },
+        trajectId: { type: Type.STRING, nullable: true },
+        categorie: { type: Type.STRING, enum: ['zakelijk', 'prive'] },
+        geschatteDuur: { type: Type.INTEGER, nullable: true, description: 'Minuten, alleen als goed in te schatten' },
+        geplandOp: { type: Type.STRING, nullable: true, description: 'YYYY-MM-DD, alleen als een moment genoemd wordt' },
+        tijd: { type: Type.STRING, nullable: true, description: 'HH:MM, alleen als een tijdstip genoemd wordt' }
+      },
+      required: ['tekst', 'categorie']
+    },
+    updateTraject: {
+      type: Type.OBJECT,
+      nullable: true,
+      properties: {
+        trajectId: { type: Type.STRING },
+        nieuweActie: { type: Type.STRING }
+      },
+      required: ['trajectId', 'nieuweActie']
+    },
+    nieuwTraject: {
+      type: Type.OBJECT,
+      nullable: true,
+      properties: {
+        naam: { type: Type.STRING }
+      },
+      required: ['naam']
+    },
+    journalInhoud: { type: Type.STRING, nullable: true },
+    verduidelijkendeVraag: { type: Type.STRING, nullable: true }
+  },
+  required: ['transcript', 'type']
+}
+
+export async function classifyTelegramBericht(input: {
+  tekst?: string
+  audio?: { base64: string, mimeType: string }
+  trajecten: TelegramTrajectInput[]
+  doelen: TelegramDoelInput[]
+}): Promise<TelegramClassificatie> {
+  const ai = getClient()
+
+  const prompt = `Je bent een assistent die inkomende Telegram-berichten van de gebruiker classificeert voor de persoonlijke planning-app Stuurhut.
+
+${input.tekst ? `BERICHT (tekst):\n"${input.tekst}"` : 'BERICHT: zie het bijgevoegde spraakbericht (audio). Transcribeer dit eerst naar tekst.'}
+
+VANDAAG IS: ${today()} (YYYY-MM-DD)
+
+BESTAANDE OPEN TRAJECTEN VAN DE GEBRUIKER (koppel het bericht hieraan als het hierover gaat, in plaats van iets nieuws aan te maken):
+${JSON.stringify(input.trajecten, null, 2)}
+
+ACTIEVE DOELEN VAN DE GEBRUIKER (alleen ter context, niet om zelf iets in weg te schrijven):
+${JSON.stringify(input.doelen, null, 2)}
+
+Classificeer het bericht als precies één "type":
+- "nieuwe_taak": een nieuwe, concrete actie die de gebruiker wil doen. Vul "nieuweTaak" in: een korte "tekst", optioneel een "trajectId" uit de lijst hierboven (anders null), een "categorie" ("zakelijk" of "prive"), een "geschatteDuur" in minuten als dat goed te schatten is (anders null), en als de gebruiker een moment noemt ook "geplandOp" (YYYY-MM-DD, relatief aan vandaag) en "tijd" (HH:MM) — anders beide null.
+- "update_traject": een update op een BESTAAND traject uit de lijst hierboven (bijv. een nieuwe eerstvolgende actie). Vul "updateTraject" in met het exacte "trajectId" uit de lijst en de nieuwe omschrijving als "nieuweActie". Gebruik dit type alleen als het traject duidelijk in de lijst voorkomt.
+- "nieuw_traject": de gebruiker start een volledig nieuw traject dat niet in de lijst voorkomt. Vul "nieuwTraject" in met de "naam".
+- "journal": een observatie, gedachte of dagboek-notitie zonder concrete actie of trajectkoppeling. Vul "journalInhoud" in met de tekst voor het journal.
+- "onduidelijk": gebruik dit als geen van bovenstaande met voldoende zekerheid past, of als het onduidelijk is welk traject bedoeld wordt. Vul "verduidelijkendeVraag" in met een korte, concrete vraag die je terugstuurt naar de gebruiker.
+
+Vul altijd "transcript" in. Vul alleen het object in dat bij het gekozen "type" hoort, laat de overige velden op null. Geef alleen geldige JSON terug volgens het schema.`
+
+  const parts: object[] = [{ text: prompt }]
+  if (input.audio) {
+    parts.push({ inlineData: { mimeType: input.audio.mimeType, data: input.audio.base64 } })
+  }
+
+  const response = await ai.models.generateContent({
+    model: MODEL,
+    contents: [{ role: 'user', parts }],
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: telegramClassificatieSchema
+    }
+  })
+
+  const text = response.text
+  if (!text) {
+    throw createError({ statusCode: 502, statusMessage: 'De AI gaf geen classificatie terug.' })
+  }
+
+  return JSON.parse(text)
+}

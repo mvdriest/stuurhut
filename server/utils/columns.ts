@@ -23,4 +23,4 @@ export const DOELEN_SELECT = 'id, userId:user_id, titel, omschrijving, deadline,
 
 export const DOEL_MIJLPALEN_SELECT = 'id, userId:user_id, doelId:doel_id, titel, beloning, afgerond, volgorde, createdAt:created_at, updatedAt:updated_at'
 
-export const JOURNAL_SELECT = 'id, userId:user_id, inhoud, createdAt:created_at'
+export const JOURNAL_SELECT = 'id, userId:user_id, inhoud, bron, createdAt:created_at'

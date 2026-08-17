@@ -2,6 +2,7 @@ export interface JournalEntry {
   id: string
   userId: string
   inhoud: string
+  bron: 'handmatig' | 'telegram'
   createdAt: string
 }
 
