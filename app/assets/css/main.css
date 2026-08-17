@@ -1,0 +1,73 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme {
+  --font-display: "komu-new-d", sans-serif;
+  --font-sans: "helvetica-neue-lt-pro", Helvetica, Arial, sans-serif;
+  --font-condensed: "helvetica-neue-lt-pro-cond", sans-serif;
+
+  --color-stuurhut-cream: #f5f0e6;
+  --color-stuurhut-ink: #1c1c1c;
+  /* Neutral light grey the concept uses behind the goal cards and the Vandaag board */
+  --color-stuurhut-mist: #e9e9e9;
+  --color-stuurhut-muted: #8b8b8b;
+
+  --color-traject-groen: #35722f;
+  --color-traject-rood: #e03a2c;
+  --color-traject-oranje: #ea7b2b;
+  --color-traject-blauw: #2544d8;
+  --color-traject-paars: #5b2472;
+  --color-traject-geel: #f2e63e;
+  --color-traject-roze: #d9427f;
+  --color-traject-grijs: #6b6b6b;
+
+  /* Progress-bar gradient from the goal cards */
+  --color-stuurhut-voortgang-van: #e2d75f;
+  --color-stuurhut-voortgang-tot: #7d6b21;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-stuurhut-mist);
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+/* Contentkolom van het concept: 160px marge op een 1920-frame. */
+.stuurhut-kolom {
+  width: 100%;
+  max-width: 140rem;
+  margin-inline: auto;
+  padding-inline: clamp(1.25rem, 8.34vw, 10rem);
+}
+
+/* Section headings in the concept are oversized condensed display caps. */
+.stuurhut-titel {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  line-height: 0.9;
+  font-size: clamp(2.75rem, 7vw, 5.375rem);
+}
+
+.stuurhut-voortgang {
+  background-image: linear-gradient(
+    to right,
+    var(--color-stuurhut-voortgang-van),
+    var(--color-stuurhut-voortgang-tot)
+  );
+}
+
+.stuurhut-nav-enter-active,
+.stuurhut-nav-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.stuurhut-nav-enter-from,
+.stuurhut-nav-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
