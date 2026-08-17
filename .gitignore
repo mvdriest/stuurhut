@@ -26,3 +26,5 @@ logs
 # Local database
 *.sqlite
 *.sqlite-*
+.vercel
+.env*
