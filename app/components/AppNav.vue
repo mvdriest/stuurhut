@@ -3,8 +3,10 @@ const supabase = useSupabaseClient()
 
 const links = [
   { to: '/', label: 'Dashboard' },
-  { to: '/ideeen', label: 'Ideeën' },
-  { to: '/journal', label: 'Journal' }
+  { to: '/trajecten', label: 'Trajecten' },
+  { to: '/agenda', label: 'Agenda' },
+  { to: '/journal', label: 'Journal' },
+  { to: '/ideeen', label: 'Ideeën' }
 ]
 
 async function logout() {

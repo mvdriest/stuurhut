@@ -85,6 +85,11 @@ async function verwerkClassificatie(
   classificatie: Awaited<ReturnType<typeof classifyTelegramBericht>>,
   trajecten: { id: string, naam: string }[]
 ): Promise<string> {
+  let bevestiging: string
+  let journalTrajectId: string | null = null
+  let resultaatLabel: string
+  let journalInhoud = classificatie.transcript
+
   switch (classificatie.type) {
     case 'nieuwe_taak': {
       const taak = classificatie.nieuweTaak
@@ -123,15 +128,20 @@ async function verwerkClassificatie(
       const trajectNaam = trajecten.find(t => t.id === trajectId)?.naam
       const locatie = trajectNaam ? ` (${trajectNaam})` : ''
       const planning = taak.geplandOp ? ` — ingepland op ${taak.geplandOp}${taak.tijd ? ` om ${taak.tijd}` : ''}` : ''
-      return `Taak toegevoegd${locatie}: "${taak.tekst}"${planning}`
+      bevestiging = `Taak toegevoegd${locatie}: "${taak.tekst}"${planning}`
+      journalTrajectId = trajectId
+      resultaatLabel = `Taak aangemaakt${locatie}: "${taak.tekst}"`
+      break
     }
 
     case 'update_traject': {
       const update = classificatie.updateTraject
       if (!update) throw new Error('Classificatie "update_traject" zonder updateTraject-data.')
       if (!trajecten.some(t => t.id === update.trajectId)) {
-        return classificatie.verduidelijkendeVraag
+        bevestiging = classificatie.verduidelijkendeVraag
           ?? `Ik kon dit niet aan een bestaand traject koppelen — bedoel je een van: ${trajecten.map(t => t.naam).join(', ')}?`
+        resultaatLabel = 'Verduidelijking gevraagd — traject niet herkend'
+        break
       }
 
       const { data: traject, error } = await supabase
@@ -144,37 +154,57 @@ async function verwerkClassificatie(
 
       if (error || !traject) throw new Error(error?.message ?? 'Traject niet gevonden.')
 
-      return `Bijgewerkt: ${traject.naam} — nieuwe volgende stap: "${update.nieuweActie}"`
+      bevestiging = `Bijgewerkt: ${traject.naam} — nieuwe volgende stap: "${update.nieuweActie}"`
+      journalTrajectId = update.trajectId
+      resultaatLabel = `Volgende stap bijgewerkt bij ${traject.naam}`
+      break
     }
 
     case 'nieuw_traject': {
       const nieuw = classificatie.nieuwTraject
       if (!nieuw) throw new Error('Classificatie "nieuw_traject" zonder nieuwTraject-data.')
 
-      const { error } = await supabase.from('trajecten').insert({
-        user_id: appUserId,
-        naam: nieuw.naam,
-        status: 'actief'
-      })
+      const { data: aangemaakt, error } = await supabase
+        .from('trajecten')
+        .insert({ user_id: appUserId, naam: nieuw.naam, status: 'actief' })
+        .select('id')
+        .single()
       if (error) throw new Error(error.message)
 
-      return `Nieuw traject aangemaakt: ${nieuw.naam}`
+      bevestiging = `Nieuw traject aangemaakt: ${nieuw.naam}`
+      journalTrajectId = aangemaakt?.id ?? null
+      resultaatLabel = `Nieuw traject aangemaakt: ${nieuw.naam}`
+      break
     }
 
     case 'journal': {
-      const inhoud = classificatie.journalInhoud ?? classificatie.transcript
-      const { error } = await supabase.from('journal_entries').insert({
-        user_id: appUserId,
-        inhoud,
-        bron: 'telegram'
-      })
-      if (error) throw new Error(error.message)
+      journalInhoud = classificatie.journalInhoud ?? classificatie.transcript
+      const trajectId = classificatie.journalTrajectId && trajecten.some(t => t.id === classificatie.journalTrajectId)
+        ? classificatie.journalTrajectId
+        : null
+      const trajectNaam = trajecten.find(t => t.id === trajectId)?.naam
 
-      return 'Toegevoegd aan je journal.'
+      bevestiging = 'Toegevoegd aan je journal.'
+      journalTrajectId = trajectId
+      resultaatLabel = trajectNaam ? `Losse gedachten bij ${trajectNaam}` : 'Los opgeslagen in Journal — geen traject herkend'
+      break
     }
 
     case 'onduidelijk':
     default:
-      return classificatie.verduidelijkendeVraag ?? 'Ik heb dit bericht niet goed kunnen classificeren — kun je het anders formuleren?'
+      bevestiging = classificatie.verduidelijkendeVraag ?? 'Ik heb dit bericht niet goed kunnen classificeren — kun je het anders formuleren?'
+      resultaatLabel = classificatie.verduidelijkendeVraag ? `Verduidelijking gevraagd: "${classificatie.verduidelijkendeVraag}"` : 'Verduidelijking gevraagd'
+      break
   }
+
+  const { error: journalError } = await supabase.from('journal_entries').insert({
+    user_id: appUserId,
+    inhoud: journalInhoud,
+    bron: 'telegram',
+    traject_id: journalTrajectId,
+    resultaat_label: resultaatLabel
+  })
+  if (journalError) throw new Error(journalError.message)
+
+  return bevestiging
 }

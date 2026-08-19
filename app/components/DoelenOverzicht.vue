@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Doel } from '~/composables/useDoelen'
+import { gehaald, voortgang } from '~/utils/doelenVoortgang'
 
 const { doelen, pending, refresh } = useDoelen()
 
@@ -94,15 +95,6 @@ async function mijlpaalAfvinken(mijlpaal: { id: string, afgerond: boolean }) {
 async function mijlpaalVerwijderen(id: string) {
   await $fetch(`/api/doelen/mijlpalen/${id}`, { method: 'DELETE' })
   await refresh()
-}
-
-function gehaald(doel: Doel) {
-  return doel.mijlpalen.filter(m => m.afgerond).length
-}
-
-function voortgang(doel: Doel) {
-  if (doel.mijlpalen.length === 0) return 0
-  return Math.round((gehaald(doel) / doel.mijlpalen.length) * 100)
 }
 </script>
 

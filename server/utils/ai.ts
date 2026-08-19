@@ -266,6 +266,7 @@ export interface TelegramClassificatie {
     naam: string
   } | null
   journalInhoud: string | null
+  journalTrajectId: string | null
   verduidelijkendeVraag: string | null
 }
 
@@ -305,6 +306,7 @@ const telegramClassificatieSchema = {
       required: ['naam']
     },
     journalInhoud: { type: Type.STRING, nullable: true },
+    journalTrajectId: { type: Type.STRING, nullable: true, description: 'Alleen invullen als de losse gedachte duidelijk over een van de bestaande trajecten hierboven gaat.' },
     verduidelijkendeVraag: { type: Type.STRING, nullable: true }
   },
   required: ['transcript', 'type']
@@ -334,7 +336,7 @@ Classificeer het bericht als precies één "type":
 - "nieuwe_taak": een nieuwe, concrete actie die de gebruiker wil doen. Vul "nieuweTaak" in: een korte "tekst", optioneel een "trajectId" uit de lijst hierboven (anders null), een "categorie" ("zakelijk" of "prive"), een "geschatteDuur" in minuten als dat goed te schatten is (anders null), en als de gebruiker een moment noemt ook "geplandOp" (YYYY-MM-DD, relatief aan vandaag) en "tijd" (HH:MM) — anders beide null.
 - "update_traject": een update op een BESTAAND traject uit de lijst hierboven (bijv. een nieuwe eerstvolgende actie). Vul "updateTraject" in met het exacte "trajectId" uit de lijst en de nieuwe omschrijving als "nieuweActie". Gebruik dit type alleen als het traject duidelijk in de lijst voorkomt.
 - "nieuw_traject": de gebruiker start een volledig nieuw traject dat niet in de lijst voorkomt. Vul "nieuwTraject" in met de "naam".
-- "journal": een observatie, gedachte of dagboek-notitie zonder concrete actie of trajectkoppeling. Vul "journalInhoud" in met de tekst voor het journal.
+- "journal": een observatie, gedachte of dagboek-notitie zonder concrete actie. Vul "journalInhoud" in met de tekst voor het journal. Als de gedachte duidelijk over een van de bestaande trajecten hierboven gaat (zonder dat het een nieuwe taak of een update van de eerstvolgende actie is), vul dan ook "journalTrajectId" in met het exacte trajectId; anders laat je die op null.
 - "onduidelijk": gebruik dit als geen van bovenstaande met voldoende zekerheid past, of als het onduidelijk is welk traject bedoeld wordt. Vul "verduidelijkendeVraag" in met een korte, concrete vraag die je terugstuurt naar de gebruiker.
 
 Vul altijd "transcript" in. Vul alleen het object in dat bij het gekozen "type" hoort, laat de overige velden op null. Geef alleen geldige JSON terug volgens het schema.`

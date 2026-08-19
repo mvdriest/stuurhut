@@ -7,11 +7,39 @@ const props = defineProps<{
   eerstvolgendeActie?: string | null
   kleur?: TrajectKleur
   doelId?: string | null
+  scope?: 'zakelijk' | 'prive'
+  wachtOp?: string | null
+  streefdatum?: string | null
+  bedragAfgesproken?: number | null
+  bedragGefactureerd?: number | null
+  financieelNotitie?: string | null
+  contactpersoon?: string | null
+  contactTelefoon?: string | null
+  contactEmail?: string | null
+  contactVoorkeur?: string | null
   submitLabel: string
 }>()
 
+type TrajectFormPayload = {
+  naam: string
+  status: 'actief' | 'wachtend' | 'on_hold'
+  eerstvolgendeActie: string
+  kleur: TrajectKleur
+  doelId: string | null
+  scope: 'zakelijk' | 'prive'
+  wachtOp: string
+  streefdatum: string
+  bedragAfgesproken: number | null
+  bedragGefactureerd: number | null
+  financieelNotitie: string
+  contactpersoon: string
+  contactTelefoon: string
+  contactEmail: string
+  contactVoorkeur: string
+}
+
 const emit = defineEmits<{
-  submit: [payload: { naam: string, status: 'actief' | 'wachtend' | 'on_hold', eerstvolgendeActie: string, kleur: TrajectKleur, doelId: string | null }]
+  submit: [payload: TrajectFormPayload]
   cancel: []
 }>()
 
@@ -20,6 +48,16 @@ const status = ref<'actief' | 'wachtend' | 'on_hold'>(props.status ?? 'actief')
 const eerstvolgendeActie = ref(props.eerstvolgendeActie ?? '')
 const kleur = ref<TrajectKleur>(props.kleur ?? 'grijs')
 const doelId = ref<string | null>(props.doelId ?? null)
+const scope = ref<'zakelijk' | 'prive'>(props.scope ?? 'zakelijk')
+const wachtOp = ref(props.wachtOp ?? '')
+const streefdatum = ref(props.streefdatum ?? '')
+const bedragAfgesproken = ref<number | null>(props.bedragAfgesproken ?? null)
+const bedragGefactureerd = ref<number | null>(props.bedragGefactureerd ?? null)
+const financieelNotitie = ref(props.financieelNotitie ?? '')
+const contactpersoon = ref(props.contactpersoon ?? '')
+const contactTelefoon = ref(props.contactTelefoon ?? '')
+const contactEmail = ref(props.contactEmail ?? '')
+const contactVoorkeur = ref(props.contactVoorkeur ?? '')
 
 const { doelen, refresh: refreshDoelen } = useDoelen()
 await useAsyncData('traject-form-doelen-init', () => doelen.value.length ? Promise.resolve(doelen.value) : refreshDoelen())
@@ -35,6 +73,11 @@ const statusOptions = [
   { label: 'On hold', value: 'on_hold' }
 ]
 
+const scopeOptions = [
+  { label: 'Zakelijk', value: 'zakelijk' },
+  { label: 'Privé', value: 'prive' }
+]
+
 function onSubmit() {
   if (!naam.value.trim()) return
   emit('submit', {
@@ -42,7 +85,17 @@ function onSubmit() {
     status: status.value,
     eerstvolgendeActie: eerstvolgendeActie.value.trim(),
     kleur: kleur.value,
-    doelId: doelId.value
+    doelId: doelId.value,
+    scope: scope.value,
+    wachtOp: wachtOp.value.trim(),
+    streefdatum: streefdatum.value,
+    bedragAfgesproken: bedragAfgesproken.value,
+    bedragGefactureerd: bedragGefactureerd.value,
+    financieelNotitie: financieelNotitie.value.trim(),
+    contactpersoon: contactpersoon.value.trim(),
+    contactTelefoon: contactTelefoon.value.trim(),
+    contactEmail: contactEmail.value.trim(),
+    contactVoorkeur: contactVoorkeur.value.trim()
   })
 }
 </script>
@@ -55,8 +108,17 @@ function onSubmit() {
     <UFormField label="Status">
       <USelect v-model="status" :items="statusOptions" value-key="value" class="w-full" />
     </UFormField>
+    <UFormField v-if="status === 'wachtend'" label="Wacht op">
+      <UInput v-model="wachtOp" placeholder="Wie of wat wordt er verwacht?" class="w-full" />
+    </UFormField>
     <UFormField label="Eerstvolgende actie">
       <UInput v-model="eerstvolgendeActie" placeholder="Wat is de volgende stap?" class="w-full" />
+    </UFormField>
+    <UFormField label="Zakelijk of privé">
+      <USelect v-model="scope" :items="scopeOptions" value-key="value" class="w-full" />
+    </UFormField>
+    <UFormField label="Streefdatum">
+      <UInput v-model="streefdatum" type="date" class="w-full" />
     </UFormField>
     <UFormField label="Kleur">
       <div class="flex gap-2 flex-wrap">
@@ -75,6 +137,36 @@ function onSubmit() {
     <UFormField label="Doel">
       <USelect v-model="doelId" :items="doelOptions" value-key="value" class="w-full" />
     </UFormField>
+
+    <fieldset class="flex flex-col gap-3 border-t border-current/15 pt-3">
+      <legend class="text-xs uppercase tracking-widest opacity-70 mb-1">Contact</legend>
+      <UFormField label="Naam">
+        <UInput v-model="contactpersoon" placeholder="Contactpersoon" class="w-full" />
+      </UFormField>
+      <UFormField label="Telefoon">
+        <UInput v-model="contactTelefoon" class="w-full" />
+      </UFormField>
+      <UFormField label="E-mail">
+        <UInput v-model="contactEmail" type="email" class="w-full" />
+      </UFormField>
+      <UFormField label="Voorkeur">
+        <UInput v-model="contactVoorkeur" placeholder="Bijv. belt liefst, reageert traag op mail" class="w-full" />
+      </UFormField>
+    </fieldset>
+
+    <fieldset class="flex flex-col gap-3 border-t border-current/15 pt-3">
+      <legend class="text-xs uppercase tracking-widest opacity-70 mb-1">Financieel</legend>
+      <UFormField label="Afgesproken bedrag (€)">
+        <UInput v-model.number="bedragAfgesproken" type="number" min="0" step="0.01" class="w-full" />
+      </UFormField>
+      <UFormField label="Gefactureerd bedrag (€)">
+        <UInput v-model.number="bedragGefactureerd" type="number" min="0" step="0.01" class="w-full" />
+      </UFormField>
+      <UFormField label="Notitie">
+        <UInput v-model="financieelNotitie" placeholder="Bijv. termijnen" class="w-full" />
+      </UFormField>
+    </fieldset>
+
     <div class="flex gap-2 justify-end">
       <!-- erft de tekstkleur van de ondergrond: dit formulier staat ook op een gekleurde folder-balk -->
       <UButton color="neutral" variant="ghost" class="text-inherit" @click="emit('cancel')">Annuleren</UButton>
