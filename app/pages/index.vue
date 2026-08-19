@@ -14,7 +14,15 @@ const groet = computed(() => {
   const uur = nu.getHours()
   if (uur < 12) return 'Goedemorgen, Martijn'
   if (uur < 18) return 'Goedemiddag, Martijn'
-  return 'Goedenavond, Martijn'
+  if (uur < 22) return 'Goedenavond, Martijn'
+  return 'Nog laat, Martijn'
+})
+
+const subtitel = computed(() => {
+  const uur = nu.getHours()
+  return uur >= 22 || uur < 6
+    ? 'Misschien is dit een goed moment om het rustig aan te doen.'
+    : 'Rustig aan, één stap tegelijk — dat is genoeg.'
 })
 
 const datum = computed(() => `${nu.getDate()} ${MAAND_NAMEN[nu.getMonth()]} ${nu.getFullYear()}`)
@@ -24,11 +32,23 @@ const datum = computed(() => `${nu.getDate()} ${MAAND_NAMEN[nu.getMonth()]} ${nu
   <div class="bg-stuurhut-mist">
     <AppHeaderFoto
       :titel="groet"
-      subtitel="Rustig aan, één stap tegelijk — dat is genoeg."
+      :subtitel="subtitel"
       :datum="datum"
     />
 
     <DoelenOverzicht />
+
+    <section class="stuurhut-kolom py-[clamp(2rem,5vw,4rem)]">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <VandaagJeDag />
+        <VandaagEenDing />
+        <VandaagNietVergeten />
+        <VandaagOpTafel class="lg:col-span-2" />
+        <VandaagWatErLoopt />
+        <VandaagWaarJeNaartoeWerkt />
+        <VandaagHoeJeErVoorStaat class="lg:col-span-2" />
+      </div>
+    </section>
 
     <VandaagBord />
 

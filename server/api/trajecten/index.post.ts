@@ -6,22 +6,42 @@ const bodySchema = z.object({
   status: z.enum(['actief', 'wachtend', 'on_hold']).default('actief'),
   eerstvolgendeActie: z.string().optional(),
   kleur: z.enum(TRAJECT_KLEUREN).default('grijs'),
-  doelId: z.string().uuid().nullable().optional()
+  doelId: z.string().uuid().nullable().optional(),
+  scope: z.enum(['zakelijk', 'prive']).default('zakelijk'),
+  wachtOp: z.string().optional(),
+  streefdatum: z.string().optional(),
+  bedragAfgesproken: z.number().nullable().optional(),
+  bedragGefactureerd: z.number().nullable().optional(),
+  financieelNotitie: z.string().optional(),
+  contactpersoon: z.string().optional(),
+  contactTelefoon: z.string().optional(),
+  contactEmail: z.string().optional(),
+  contactVoorkeur: z.string().optional()
 })
 
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await requireSupabaseUser(event)
-  const { naam, status, eerstvolgendeActie, kleur, doelId } = await readValidatedBody(event, bodySchema.parse)
+  const body = await readValidatedBody(event, bodySchema.parse)
 
   const { data, error } = await supabase
     .from('trajecten')
     .insert({
       user_id: user.id,
-      naam,
-      status,
-      eerstvolgende_actie: eerstvolgendeActie,
-      kleur,
-      doel_id: doelId ?? null
+      naam: body.naam,
+      status: body.status,
+      eerstvolgende_actie: body.eerstvolgendeActie,
+      kleur: body.kleur,
+      doel_id: body.doelId ?? null,
+      scope: body.scope,
+      wacht_op: body.wachtOp,
+      streefdatum: body.streefdatum,
+      bedrag_afgesproken: body.bedragAfgesproken,
+      bedrag_gefactureerd: body.bedragGefactureerd,
+      financieel_notitie: body.financieelNotitie,
+      contactpersoon: body.contactpersoon,
+      contact_telefoon: body.contactTelefoon,
+      contact_email: body.contactEmail,
+      contact_voorkeur: body.contactVoorkeur
     })
     .select(TRAJECTEN_SELECT)
     .single()

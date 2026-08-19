@@ -4,6 +4,8 @@ export interface JournalEntry {
   inhoud: string
   bron: 'handmatig' | 'telegram'
   createdAt: string
+  trajectId: string | null
+  resultaatLabel: string | null
 }
 
 export function useJournal() {

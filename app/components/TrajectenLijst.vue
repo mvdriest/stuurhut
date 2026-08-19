@@ -36,6 +36,16 @@ type TrajectPayload = {
   eerstvolgendeActie: string
   kleur: TrajectKleur
   doelId: string | null
+  scope: 'zakelijk' | 'prive'
+  wachtOp: string
+  streefdatum: string
+  bedragAfgesproken: number | null
+  bedragGefactureerd: number | null
+  financieelNotitie: string
+  contactpersoon: string
+  contactTelefoon: string
+  contactEmail: string
+  contactVoorkeur: string
 }
 
 async function createTraject(payload: TrajectPayload) {
@@ -108,6 +118,16 @@ async function deleteTraject(id: string) {
             :eerstvolgende-actie="traject.eerstvolgendeActie"
             :kleur="traject.kleur"
             :doel-id="traject.doelId"
+            :scope="traject.scope"
+            :wacht-op="traject.wachtOp"
+            :streefdatum="traject.streefdatum"
+            :bedrag-afgesproken="traject.bedragAfgesproken"
+            :bedrag-gefactureerd="traject.bedragGefactureerd"
+            :financieel-notitie="traject.financieelNotitie"
+            :contactpersoon="traject.contactpersoon"
+            :contact-telefoon="traject.contactTelefoon"
+            :contact-email="traject.contactEmail"
+            :contact-voorkeur="traject.contactVoorkeur"
             submit-label="Opslaan"
             @submit="payload => updateTraject(traject.id, payload)"
             @cancel="editingId = null"

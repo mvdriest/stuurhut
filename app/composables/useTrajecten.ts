@@ -10,6 +10,16 @@ export interface Traject {
   doelId: string | null
   createdAt: string
   updatedAt: string
+  scope: 'zakelijk' | 'prive'
+  wachtOp: string | null
+  streefdatum: string | null
+  bedragAfgesproken: number | null
+  bedragGefactureerd: number | null
+  financieelNotitie: string | null
+  contactpersoon: string | null
+  contactTelefoon: string | null
+  contactEmail: string | null
+  contactVoorkeur: string | null
 }
 
 export function useTrajecten() {
