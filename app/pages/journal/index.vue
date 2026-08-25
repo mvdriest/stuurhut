@@ -146,14 +146,14 @@ const weekGroepen = computed(() => {
 
 <style scoped>
 .journalkaart {
-  background-color: #fff;
+  background-color: var(--color-stuurhut-card);
   color: var(--color-stuurhut-ink);
   border-radius: 1rem;
   padding: 1rem 1.125rem;
   display: flex;
   flex-direction: column;
   gap: 0.625rem;
-  box-shadow: 0 8px 22px rgb(0 0 0 / 0.07);
+  box-shadow: 0 10px 26px rgb(60 38 16 / 0.1);
 }
 
 .journalkaart__label {

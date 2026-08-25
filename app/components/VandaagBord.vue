@@ -156,8 +156,8 @@ const trajectOpties = computed(() => [
   gap: 1.25rem;
   padding: clamp(1.25rem, 1.8vw, 2rem);
   border-radius: 1.25rem;
-  background-color: #fff;
-  box-shadow: 0 10px 26px rgb(0 0 0 / 0.08);
+  background-color: var(--color-stuurhut-card);
+  box-shadow: 0 10px 26px rgb(60 38 16 / 0.12);
   cursor: grab;
 }
 
@@ -175,7 +175,7 @@ const trajectOpties = computed(() => [
 }
 
 .taakkaart__pil--leeg {
-  background-color: #e4e4e4;
+  background-color: var(--color-stuurhut-subtle);
   color: var(--color-stuurhut-ink);
 }
 

@@ -84,10 +84,10 @@ function ongeplandeItems(dag: AgendaDag) {
 
 <style scoped>
 .agendagrid {
-  background-color: #fff;
+  background-color: var(--color-stuurhut-card);
   border-radius: 1.25rem;
   padding: 1.125rem 1.125rem 1.375rem;
-  box-shadow: 0 10px 26px rgb(0 0 0 / 0.08);
+  box-shadow: 0 10px 26px rgb(60 38 16 / 0.1);
   overflow-x: auto;
 }
 

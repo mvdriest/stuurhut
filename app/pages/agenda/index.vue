@@ -185,7 +185,7 @@ async function afspraakToevoegen() {
         </div>
       </div>
 
-      <div v-if="isToevoegen" class="rounded-2xl bg-white p-5 shadow-sm text-stuurhut-ink">
+      <div v-if="isToevoegen" class="rounded-2xl bg-stuurhut-card p-5 text-stuurhut-ink">
         <form class="flex flex-col gap-3" @submit.prevent="afspraakToevoegen">
           <UInput v-model="nieuwTitel" placeholder="Titel" autofocus />
           <div class="flex flex-wrap gap-2">
@@ -263,8 +263,8 @@ async function afspraakToevoegen() {
 }
 
 .agenda__modus--actief {
-  background-color: var(--color-stuurhut-ink);
-  color: #fff;
+  background-color: var(--color-stuurhut-accent);
+  color: oklch(20% 0.05 48);
 }
 
 .agenda__dagpil {
@@ -272,7 +272,7 @@ async function afspraakToevoegen() {
   font-weight: 600;
   padding: 0.4rem 0.85rem;
   border-radius: 9999px;
-  background-color: #fff;
+  background-color: var(--color-stuurhut-card);
   color: var(--color-stuurhut-ink);
 }
 
@@ -285,10 +285,10 @@ async function afspraakToevoegen() {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0.375rem;
-  background-color: #fff;
+  background-color: var(--color-stuurhut-card);
   border-radius: 1.25rem;
   padding: 1rem;
-  box-shadow: 0 10px 26px rgb(0 0 0 / 0.08);
+  box-shadow: 0 10px 26px rgb(60 38 16 / 0.1);
 }
 
 .agenda__maand-wd {

@@ -64,11 +64,11 @@ function takenVoorKolom(status: string) {
 
 <style scoped>
 .vandaagkaart {
-  background-color: #fff;
+  background-color: var(--color-stuurhut-card);
   color: var(--color-stuurhut-ink);
-  border-radius: 1.125rem;
+  border-radius: 1.25rem;
   padding: 1.125rem 1.25rem;
-  box-shadow: 0 8px 22px rgb(0 0 0 / 0.07);
+  box-shadow: 0 10px 26px rgb(60 38 16 / 0.1);
 }
 
 .vandaagkaart__titel {
@@ -87,8 +87,8 @@ function takenVoorKolom(status: string) {
 }
 
 .optafel__toggle--actief {
-  background-color: var(--color-stuurhut-ink);
-  color: #fff;
+  background-color: var(--color-stuurhut-accent);
+  color: oklch(20% 0.05 48);
 }
 
 .optafel__kop {
@@ -100,7 +100,7 @@ function takenVoorKolom(status: string) {
 }
 
 .optafel-kaart {
-  background-color: var(--color-stuurhut-mist);
+  background-color: var(--color-stuurhut-subtle);
   border-radius: 0.7rem;
   padding: 0.55rem 0.7rem;
   display: flex;

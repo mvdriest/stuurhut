@@ -63,7 +63,7 @@ async function createTraject(payload: Record<string, unknown>) {
         </UButton>
       </div>
 
-      <div v-if="isAdding" class="rounded-2xl bg-white p-5 shadow-sm text-stuurhut-ink">
+      <div v-if="isAdding" class="rounded-2xl p-5 text-stuurhut-ink bg-stuurhut-card shadow-[0_10px_26px_rgb(60_38_16_/_0.1)]">
         <TrajectForm submit-label="Toevoegen" @submit="createTraject" @cancel="isAdding = false" />
       </div>
 
@@ -135,8 +135,8 @@ async function createTraject(payload: Record<string, unknown>) {
 }
 
 .trajecten-ov__tab--actief {
-  background-color: var(--color-stuurhut-ink);
-  color: #fff;
+  background-color: var(--color-stuurhut-accent);
+  color: oklch(20% 0.05 48);
 }
 
 .trajectkaart {
@@ -144,16 +144,16 @@ async function createTraject(payload: Record<string, unknown>) {
   flex-direction: column;
   gap: 0.875rem;
   padding: 1.125rem 1.25rem;
-  border-radius: 1.125rem;
-  background-color: #fff;
-  box-shadow: 0 8px 22px rgb(0 0 0 / 0.08);
+  border-radius: 1.25rem;
+  background-color: var(--color-stuurhut-card);
+  box-shadow: 0 8px 22px rgb(60 38 16 / 0.09);
   transition: transform 150ms ease-out, box-shadow 150ms ease-out;
   color: inherit;
 }
 
 .trajectkaart:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgb(0 0 0 / 0.12);
+  box-shadow: 0 12px 28px rgb(60 38 16 / 0.13);
 }
 
 .trajectkaart__titel {
@@ -171,7 +171,7 @@ async function createTraject(payload: Record<string, unknown>) {
 .trajectkaart__stap {
   border-radius: 0.8rem;
   padding: 0.8rem 0.95rem;
-  background-color: var(--color-stuurhut-mist);
+  background-color: var(--color-stuurhut-subtle);
 }
 
 .trajectkaart__stap-label {
