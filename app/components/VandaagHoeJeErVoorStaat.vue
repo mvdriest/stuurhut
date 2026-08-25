@@ -16,8 +16,8 @@
 <style scoped>
 .vandaagkaart--uit {
   background-color: transparent;
-  border: 2px dashed rgb(0 0 0 / 0.15);
-  border-radius: 1.125rem;
+  border: 2px dashed oklch(80% 0.02 66);
+  border-radius: 1.25rem;
   padding: 1.125rem 1.25rem;
 }
 

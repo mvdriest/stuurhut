@@ -174,7 +174,7 @@ const secties = [
       <div>
         <h3 class="dossier-koptitel">Spullen erbij</h3>
         <div class="flex flex-col gap-2 mb-3">
-          <div v-for="bestand in bestanden" :key="bestand.id" class="flex items-center gap-2.5 bg-white border border-black/8 rounded-xl px-3 py-2.5 group">
+          <div v-for="bestand in bestanden" :key="bestand.id" class="flex items-center gap-2.5 bg-stuurhut-card border border-black/8 rounded-xl px-3 py-2.5 group">
             <span class="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/8 text-stuurhut-muted">{{ bestand.kind }}</span>
             <a v-if="bestand.url" :href="bestand.url" target="_blank" class="text-sm flex-1 truncate">{{ bestand.naam }}</a>
             <span v-else class="text-sm flex-1 truncate">{{ bestand.naam }}</span>
@@ -221,7 +221,7 @@ const secties = [
           <p class="text-sm text-stuurhut-muted">Offertes — nog niet gebouwd.</p>
         </div>
 
-        <div v-else key="overig" class="rounded-2xl bg-white p-6 flex flex-col gap-4 text-stuurhut-ink">
+        <div v-else key="overig" class="rounded-2xl bg-stuurhut-card p-6 flex flex-col gap-4 text-stuurhut-ink">
           <div>
             <p class="text-xs uppercase tracking-widest text-stuurhut-muted mb-1">Status</p>
             <UBadge :color="TRAJECT_STATUS_STYLES[traject.status].color" variant="subtle">
@@ -255,7 +255,7 @@ const secties = [
 .dossier-stap {
   border-radius: 1rem;
   padding: 1.125rem 1.25rem;
-  background: linear-gradient(150deg, #e8c78a 0%, #cf9a5a 100%);
+  background: linear-gradient(150deg, oklch(74% 0.14 72) 0%, oklch(64% 0.15 46) 100%);
 }
 
 .dossier-stap__label {
@@ -263,7 +263,7 @@ const secties = [
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #5a3f1a;
+  color: oklch(30% 0.07 54);
   margin-bottom: 0.4rem;
 }
 
@@ -272,17 +272,17 @@ const secties = [
   text-transform: uppercase;
   font-size: clamp(1.35rem, 2.4vw, 1.75rem);
   line-height: 1;
-  color: #2a1c08;
+  color: oklch(20% 0.05 48);
 }
 
 .feitkaart {
-  background-color: #fff;
+  background-color: var(--color-stuurhut-card);
   border-radius: 0.875rem;
   padding: 0.875rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  box-shadow: 0 6px 16px rgb(0 0 0 / 0.06);
+  box-shadow: 0 6px 16px rgb(60 38 16 / 0.08);
 }
 
 .feitkaart__label {
@@ -300,11 +300,11 @@ const secties = [
 }
 
 .dossierkaart {
-  background-color: #fff;
+  background-color: var(--color-stuurhut-card);
   color: var(--color-stuurhut-ink);
   border-radius: 1rem;
   padding: 1.125rem 1.25rem;
-  box-shadow: 0 8px 22px rgb(0 0 0 / 0.07);
+  box-shadow: 0 8px 22px rgb(60 38 16 / 0.1);
 }
 
 .dossierkaart__titel {

@@ -70,33 +70,50 @@ async function markeerKlaar() {
 
 <template>
   <div class="vandaagkaart vandaagkaart--accent">
-    <p class="eending__label">Als je één ding doet</p>
+    <div class="eending__label">
+      <span class="eending__dot" />
+      <span>Als je één ding doet</span>
+    </div>
     <template v-if="gekozen">
       <p class="eending__titel">{{ gekozen.titel }}</p>
       <p class="eending__reden">{{ gekozen.reden }}</p>
-      <UButton icon="i-lucide-check" size="sm" class="self-start" @click="markeerKlaar">Gelukt</UButton>
+      <UButton icon="i-lucide-check" size="sm" class="self-start rounded-full" @click="markeerKlaar">Gelukt</UButton>
     </template>
-    <p v-else class="text-sm text-stuurhut-muted">Niets openstaands gevonden — mooi rustig.</p>
+    <p v-else class="text-sm" style="color: rgb(255 255 255 / 0.85)">Niets openstaands gevonden — mooi rustig.</p>
   </div>
 </template>
 
 <style scoped>
 .vandaagkaart--accent {
-  background: linear-gradient(150deg, #e8c78a 0%, #cf9a5a 100%);
-  border-radius: 1.125rem;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(150deg, oklch(64% 0.18 44) 0%, oklch(74% 0.15 74) 100%);
+  border-radius: 1.25rem;
   padding: 1.25rem 1.375rem;
   display: flex;
   flex-direction: column;
   gap: 0.625rem;
   align-items: flex-start;
+  box-shadow: 0 20px 46px rgb(150 80 25 / 0.35);
 }
 
 .eending__label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #5a3f1a;
+  color: rgb(255 255 255 / 0.8);
+}
+
+.eending__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: oklch(99% 0.04 92);
+  box-shadow: 0 0 12px oklch(96% 0.09 88);
 }
 
 .eending__titel {
@@ -104,11 +121,13 @@ async function markeerKlaar() {
   text-transform: uppercase;
   font-size: clamp(1.5rem, 2.4vw, 2rem);
   line-height: 1;
-  color: #2a1c08;
+  color: #fff;
+  text-shadow: 0 2px 14px rgb(20 10 4 / 0.2);
 }
 
 .eending__reden {
   font-size: 0.875rem;
-  color: #4a3416;
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.9);
 }
 </style>

@@ -5,7 +5,9 @@ const user = useSupabaseUser()
 <template>
   <UApp>
     <NuxtRouteAnnouncer />
-    <NuxtPage />
+    <NuxtLayout>
+      <NuxtPage />
+    </NuxtLayout>
     <FocusTimer v-if="user" />
   </UApp>
 </template>

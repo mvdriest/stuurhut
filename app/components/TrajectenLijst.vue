@@ -149,7 +149,7 @@ async function deleteTraject(id: string) {
 
 <style scoped>
 .trajecten {
-  background-color: var(--color-stuurhut-ink);
+  background-color: var(--color-stuurhut-sidebar);
   color: #fff;
   padding-block: clamp(3rem, 7vw, 7rem);
 }
