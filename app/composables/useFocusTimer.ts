@@ -57,11 +57,11 @@ export function useFocusTimer() {
     if (import.meta.client) localStorage.setItem(STORAGE_KEY, JSON.stringify(state.value))
   }
 
-  async function logSessie(type: 'werk' | 'pauze', duurMinuten: number, voltooid: boolean) {
+  async function logSessie(type: 'werk' | 'pauze', duurMinuten: number, voltooid: boolean, sessie: FocusTimerState) {
     try {
       await $fetch('/api/focus-sessies', {
         method: 'POST',
-        body: { type, duurMinuten, voltooid, trajectId: state.value.trajectId, subtaakId: state.value.subtaakId }
+        body: { type, duurMinuten, voltooid, trajectId: sessie.trajectId, subtaakId: sessie.subtaakId }
       })
     } catch {
       // loggen mag falen zonder de timer te blokkeren
@@ -84,9 +84,14 @@ export function useFocusTimer() {
     const afgelopenFase = state.value.fase
     if (afgelopenFase === 'idle') return
 
-    const duur = afgelopenFase === 'werk' ? FOCUS_WERK_MINUTEN : FOCUS_PAUZE_MINUTEN
-    await logSessie(afgelopenFase, duur, voltooid)
+    const geplandeDuur = afgelopenFase === 'werk' ? FOCUS_WERK_MINUTEN : FOCUS_PAUZE_MINUTEN
+    // Bij afbreken alleen de werkelijk verstreken minuten loggen, niet het hele blok.
+    const restMs = state.value.eindTijd === null ? 0 : Math.max(0, state.value.eindTijd - Date.now())
+    const duur = voltooid ? geplandeDuur : Math.round((geplandeDuur * 60_000 - restMs) / 60_000)
+    const vorigeState = state.value
 
+    // Eerst de state doorzetten, dán loggen: anders sluit de tick van de volgende
+    // seconde dezelfde fase nog eens af terwijl het log-verzoek nog loopt.
     if (afgelopenFase === 'werk' && voltooid) {
       meldFaseWissel('Focusblok klaar — tijd voor een pauze')
       state.value = { ...state.value, fase: 'pauze', eindTijd: Date.now() + FOCUS_PAUZE_MINUTEN * 60_000 }
@@ -96,6 +101,8 @@ export function useFocusTimer() {
     }
     bewaar()
     tick()
+
+    if (duur > 0) await logSessie(afgelopenFase, duur, voltooid, vorigeState)
   }
 
   function start(opties?: { trajectId?: string | null, subtaakId?: string | null }) {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const user = useSupabaseUser()
+const route = useRoute()
 </script>
 
 <template>
@@ -8,6 +9,7 @@ const user = useSupabaseUser()
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
-    <FocusTimer v-if="user" />
+    <!-- Op de kaart zit de focus-timer in de "Focus Mode"-knop zelf. -->
+    <FocusTimer v-if="user && route.meta.layout !== 'kaart'" />
   </UApp>
 </template>

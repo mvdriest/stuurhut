@@ -22,7 +22,8 @@ const navGroups: NavGroup[] = [
   {
     naam: 'Dagelijks',
     items: [
-      { label: 'Vandaag', to: '/' },
+      { label: 'Kaart', to: '/' },
+      { label: 'Vandaag', to: '/vandaag' },
       { label: 'Agenda', to: '/agenda' },
       { label: 'Journal', to: '/journal' }
     ]
@@ -32,14 +33,14 @@ const navGroups: NavGroup[] = [
     items: [
       { label: 'Trajecten', to: '/trajecten' },
       { label: 'Ideeën', to: '/ideeen' },
-      { label: 'Doelen', to: '/#doelen' },
-      { label: 'Financiën', to: '/#financien' }
+      { label: 'Doelen', to: '/vandaag#doelen' },
+      { label: 'Financiën', to: '/vandaag#financien' }
     ]
   }
 ]
 
 function isActive(to: string) {
-  if (to.startsWith('/#')) return false
+  if (to.includes('#')) return false
   return route.path === to
 }
 

@@ -11,6 +11,13 @@ export default defineNuxtConfig({
       ]
     }
   },
+  // Het design (crème/inkt) is alleen licht uitgewerkt; zonder dit volgt Nuxt UI het
+  // systeemthema en worden knoppen, invoervelden en panelen donker op een crème pagina.
+  colorMode: {
+    preference: 'light',
+    fallback: 'light',
+    storageKey: 'stuurhut-kleurmodus'
+  },
   supabase: {
     redirect: false
   },

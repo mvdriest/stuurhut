@@ -253,6 +253,21 @@ live/crossfade updates while a page stays open. `app/components/FolderTab.vue` i
 GSAP-animated stacked folder-bar used by `TrajectenLijst.vue`; the traject-detail section
 nav is a separate component (`SectieTabs.vue`) rather than a second mode of FolderTab.
 
+**Kaart (startscherm, `/`)**: `app/pages/index.vue` is a full-screen map of Utrecht
+(layout `app/layouts/kaart.vue`, no sidebar); the old dashboard moved to
+`app/pages/vandaag.vue` (`/vandaag`). The "3D" is CSS-3D over one pre-rendered image
+(`public/images/kaart/utrecht.webp`), not a 3D model: `components/kaart/StadKaart.vue`
+tilts the image plane (`rotateX`) with the mouse while pins float on `translateZ(40px)` and
+clouds on `translateZ(180px)`, so the layers parallax. Camera state is `(cx, cy, zoom)` in
+**percent of the image**, which keeps the SSR and client transform identical; never convert
+it to px in the template. `vliegNaar()` resolves `false` when a flight is interrupted (drag,
+wheel, another pin) and callers must then do nothing. Pin positions, colours and targets
+live in `app/utils/kaartPlekken.ts` (keep x ≳ 36 clear of the left column); targets are
+either a page or a `USlideover` with `KaartPaneel.vue`. Counts come from one aggregate
+route, `server/api/kaart/overzicht.get.ts` / `useKaartOverzicht()`. Financiën has no data
+model yet and says so. Nuxt UI is pinned to light mode in `nuxt.config.ts` (`colorMode`):
+the design only exists in light, and system-dark made inputs and panels dark on cream.
+
 **UI structure**: there is no page-wide `max-w-*` wrapper — sections are full-bleed and
 each puts a `.stuurhut-kolom` inside itself (see `docs/design-system.md` §2).
 `app/pages/index.vue` is the main dashboard, following the concept top to bottom:
