@@ -15,9 +15,15 @@ const KOLOMMEN: { status: Taak['status'], label: string }[] = [
   { status: 'klaar', label: 'Ready' }
 ]
 
+// "Ready" is een dagoverzicht: alleen wat vandaag is afgerond, niet de hele historie.
+function hoortBijVandaag(taak: Taak) {
+  if (taak.status !== 'klaar') return true
+  return taak.klaarOp !== null && nederlandseDatum(taak.klaarOp) === nederlandseDatum()
+}
+
 function takenVoorKolom(status: Taak['status']) {
   return taken.value
-    .filter(t => t.status === status)
+    .filter(t => t.status === status && hoortBijVandaag(t))
     .sort((a, b) => a.volgorde - b.volgorde)
 }
 

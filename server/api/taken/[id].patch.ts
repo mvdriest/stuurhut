@@ -18,7 +18,10 @@ export default defineEventHandler(async (event) => {
       tekst: updates.tekst,
       status: updates.status,
       geschatte_duur: updates.geschatteDuur,
-      volgorde: updates.volgorde
+      volgorde: updates.volgorde,
+      // Bijhouden wanneer een taak klaar is, zodat het Vandaag-bord alleen
+      // vandaag afgeronde taken in "Ready" toont.
+      klaar_op: updates.status === undefined ? undefined : (updates.status === 'klaar' ? new Date().toISOString() : null)
     })
     .eq('id', id)
     .select(SUBTAKEN_SELECT)

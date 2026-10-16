@@ -3,21 +3,18 @@ definePageMeta({
   pageTransition: { name: 'stuurhut-nav', mode: 'out-in' }
 })
 
-const MAAND_NAMEN = [
-  'januari', 'februari', 'maart', 'april', 'mei', 'juni',
-  'juli', 'augustus', 'september', 'oktober', 'november', 'december'
-]
-
-const nu = new Date()
+// Eén moment, op de server vastgelegd en bij hydratatie hergebruikt.
+const moment = useState('dashboard-moment', () => Date.now())
+const nu = computed(() => nederlandseTijd(moment.value))
 
 const groet = computed(() => {
-  const uur = nu.getHours()
+  const uur = nu.value.uur
   if (uur < 12) return 'Goedemorgen, Martijn'
   if (uur < 18) return 'Goedemiddag, Martijn'
   return 'Goedenavond, Martijn'
 })
 
-const datum = computed(() => `${nu.getDate()} ${MAAND_NAMEN[nu.getMonth()]} ${nu.getFullYear()}`)
+const datum = computed(() => formatDatumNl(nu.value))
 </script>
 
 <template>

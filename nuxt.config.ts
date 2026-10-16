@@ -17,6 +17,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     geminiApiKey: '',
     telegramBotToken: '',
+    telegramWebhookSecret: '',
     telegramAllowedUserId: ''
   }
 })

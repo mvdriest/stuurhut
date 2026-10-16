@@ -119,9 +119,11 @@ between them. IDs are `uuid` strings end-to-end, including in the frontend compo
 TS interfaces (`Traject['id']` etc. are `string`, not `number`).
 
 **"Vandaag" (today's priorities) date scoping**: rows are scoped by a `datum` column
-(`YYYY-MM-DD`, computed server-side by `server/utils/date.ts`'s `today()` using
-`toLocaleDateString('en-CA')` for the server's local timezone) rather than by "is today"
-logic in the client. This is deliberate: it keeps daily history around for free. The API
+(`YYYY-MM-DD`, computed server-side by `server/utils/date.ts`'s `today()`, pinned to
+`Europe/Amsterdam` — production runs in UTC, so never use the server's local timezone)
+rather than by "is today" logic in the client. Client-side, `app/utils/tijd.ts`
+(`nederlandseTijd`/`nederlandseDatum`) does the same for the greeting, hero photo and
+the Vandaag-bord; SSR and client must agree on the hour or hydration mismatches. This is deliberate: it keeps daily history around for free. The API
 enforces a hard cap of 3 items per day (`server/api/vandaag/index.post.ts` and the inbox
 move endpoint both check this) — this is a deliberate "focus, not overwhelm" constraint,
 kept even though the Takenbord (below) gives a place for the full, unfiltered task list.
@@ -149,7 +151,9 @@ them from future regeneration and drag-and-drop) or mark done (`klaar`) in
 **Takenbord (kanban) per traject**: rather than a separate "tasks" table, the board in
 `app/pages/trajecten/[id].vue` is a kanban UI directly over the existing `subtaken` table
 (`server/api/taken/**`, `app/composables/useTaken.ts`) — the same table AI-weekplanning
-reads from. `subtaken.status` has four values (`to_do`/`bezig`/`review`/`klaar`);
+reads from. `subtaken.klaar_op` is set by the PATCH route when a task moves to `klaar`
+(cleared otherwise); `VandaagBord.vue`'s Ready column only shows tasks finished today.
+`trajectId` is nullable ("Los" tasks). `subtaken.status` has four values (`to_do`/`bezig`/`review`/`klaar`);
 AI-weekplanning only ever picks up `to_do` tasks, so tasks already in progress or review on
 the board aren't silently rescheduled. Keeping one task table (instead of a board-only
 table plus the planning table) means a task created on the board is automatically visible
@@ -160,9 +164,10 @@ to "Plan mijn week" once it's back in `to_do`.
 link), not a free-positioned canvas — `trajectId` is nullable so an idea can exist
 standalone.
 
-**Journal**: `journal_entries` table (`id`/`user_id`/`inhoud`/`created_at` only — no
-`bron`/source column, since the Telegram-capture idea from the original concept brief is
-out of scope) + `server/api/journal/**` + `useJournal.ts` + `app/pages/journal/index.vue`.
+**Journal**: `journal_entries` table (`id`/`user_id`/`inhoud`/`bron`/`created_at`, plus
+unused nullable `traject_id`/`resultaat_label` columns; `bron` defaults to `'handmatig'`,
+the Telegram webhook writes `'telegram'`) + `server/api/journal/**` + `useJournal.ts` +
+`app/pages/journal/index.vue`.
 Add-only: a textarea posts a new entry, the list below is read-only, ordered
 `desc(createdAt)`. No edit/delete endpoints exist.
 
@@ -188,6 +193,17 @@ a page refresh doesn't lose progress) — the server only receives a log entry p
 or aborted phase via `server/api/focus-sessies/index.post.ts` (`focus_sessies` table),
 there is no "live" server-side timer state. `FocusTimer.vue` is mounted globally in
 `app/app.vue` (visible on every page while logged in) so a session survives navigation.
+
+**Telegram capture**: `server/api/telegram/webhook.post.ts` uses the service-role client
+(no user session), so it is guarded by `NUXT_TELEGRAM_WEBHOOK_SECRET`, compared against
+Telegram's `X-Telegram-Bot-Api-Secret-Token` header — fail-closed if unset — plus
+`NUXT_TELEGRAM_ALLOWED_USER_ID`. AI output (dates/times) is regex-validated before insert,
+same as in weekplanning (`DATUM_REGEX`/`TIJD_REGEX` in `server/utils/date.ts`,
+`isGeldigPlanItem` in `server/utils/weekplanning.ts`).
+
+**Error feedback**: components call `$fetch` without try/catch on purpose;
+`app/plugins/foutmelding.client.ts` turns any error surfacing via Vue's `vue:error` hook
+into a Nuxt UI toast with the server's `statusMessage`.
 
 **Client-side data flow**: each entity has a composable (`useTrajecten.ts`, `useVandaag.ts`,
 `useInbox.ts`, `useTaken.ts`, `useIdeeen.ts`, `useWeekplanning.ts`, `useDagindeling.ts`,

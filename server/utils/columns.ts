@@ -9,7 +9,7 @@ export const INBOX_SELECT = 'id, userId:user_id, tekst, createdAt:created_at'
 
 export const DAGBLOKKEN_SELECT = 'id, userId:user_id, weekdag, type, startTijd:start_tijd, eindTijd:eind_tijd, volgorde, createdAt:created_at'
 
-export const SUBTAKEN_SELECT = 'id, userId:user_id, trajectId:traject_id, tekst, geschatteDuur:geschatte_duur, status, volgorde, createdAt:created_at'
+export const SUBTAKEN_SELECT = 'id, userId:user_id, trajectId:traject_id, tekst, geschatteDuur:geschatte_duur, status, volgorde, klaarOp:klaar_op, createdAt:created_at'
 
 export const GEPLANDE_TAKEN_SELECT = 'id, userId:user_id, subtaakId:subtaak_id, vrijeTekst:vrije_tekst, datum, blokType:blok_type, startTijd:start_tijd, geschatteDuur:geschatte_duur, status, volgorde, createdAt:created_at, updatedAt:updated_at'
 

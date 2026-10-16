@@ -23,8 +23,10 @@ function dagdeelAfbeelding(uur: number) {
   return DAGDEEL_AFBEELDINGEN.nacht
 }
 
+const moment = useState('hero-moment', () => Date.now())
+
 const achtergrondStijl = computed(() => {
-  const afbeelding = props.afbeelding ?? dagdeelAfbeelding(new Date().getHours())
+  const afbeelding = props.afbeelding ?? dagdeelAfbeelding(nederlandseTijd(moment.value).uur)
   return { backgroundImage: `url(${afbeelding})` }
 })
 </script>

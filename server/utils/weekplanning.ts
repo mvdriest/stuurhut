@@ -65,3 +65,15 @@ export async function haalGeplandeTaken(supabase: SupabaseClient, periodeStart: 
     }
   })
 }
+
+// De AI houdt zich niet altijd aan het schema: alleen items binnen de geplande
+// week, met een geldig bloktype en een positieve duur, worden opgeslagen.
+export function isGeldigPlanItem(
+  item: { datum: string, blokType: string, geschatteDuur: number },
+  geldigeDatums: Set<string>
+) {
+  return geldigeDatums.has(item.datum)
+    && (item.blokType === 'prive' || item.blokType === 'zakelijk')
+    && Number.isInteger(item.geschatteDuur)
+    && item.geschatteDuur > 0
+}

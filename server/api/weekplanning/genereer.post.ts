@@ -61,13 +61,16 @@ export default defineEventHandler(async (event) => {
     correcties
   })
 
+  // Een door de AI verzonnen trajectId zou op de foreign key stuklopen.
+  const trajectIds = new Set(openTrajecten.map(t => t.id))
+
   let nieuweSubtaakIds: string[] = []
   if (resultaat.nieuweSubtaken.length > 0) {
     const { data: ingevoegd, error: insertSubtakenError } = await supabase
       .from('subtaken')
       .insert(resultaat.nieuweSubtaken.map((s, i) => ({
         user_id: user.id,
-        traject_id: s.trajectId,
+        traject_id: s.trajectId && trajectIds.has(s.trajectId) ? s.trajectId : null,
         tekst: s.tekst,
         geschatte_duur: s.geschatteDuur,
         volgorde: i
@@ -77,16 +80,10 @@ export default defineEventHandler(async (event) => {
     nieuweSubtaakIds = ingevoegd.map(r => r.id)
   }
 
-  const geldigeSubtaakIds = new Set([...openstaandeSubtaken.map(s => s.id), ...nieuweSubtaakIds])
+  const oudeGeplandeIds = vasteTakenRuw.filter(taak => taak.status === 'gepland').map(taak => taak.id)
+  const geldigeDatums = new Set(periode)
 
-  const { error: deleteError } = await supabase
-    .from('geplande_taken')
-    .delete()
-    .eq('user_id', user.id)
-    .gte('datum', periodeStart)
-    .lte('datum', periodeEind)
-    .eq('status', 'gepland')
-  if (deleteError) throw createError({ statusCode: 500, statusMessage: deleteError.message })
+  const geldigeSubtaakIds = new Set([...openstaandeSubtaken.map(s => s.id), ...nieuweSubtaakIds])
 
   const volgordeTeller = new Map<string, number>()
   const nieuweRijen = resultaat.planning
@@ -96,6 +93,7 @@ export default defineEventHandler(async (event) => {
         : (item.subtaakIndex !== null && item.subtaakIndex !== undefined ? nieuweSubtaakIds[item.subtaakIndex] ?? null : null)
 
       if (subtaakId !== null && !geldigeSubtaakIds.has(subtaakId)) return null
+      if (!isGeldigPlanItem(item, geldigeDatums)) return null
 
       const sleutel = `${item.datum}-${item.blokType}`
       const volgorde = volgordeTeller.get(sleutel) ?? 0
@@ -107,7 +105,7 @@ export default defineEventHandler(async (event) => {
         vrije_tekst: subtaakId === null ? (item.vrijeTekst ?? '') : null,
         datum: item.datum,
         blok_type: item.blokType,
-        start_tijd: item.startTijd,
+        start_tijd: item.startTijd && TIJD_REGEX.test(item.startTijd) ? item.startTijd : null,
         geschatte_duur: item.geschatteDuur,
         status: 'gepland' as const,
         volgorde
@@ -118,6 +116,13 @@ export default defineEventHandler(async (event) => {
   if (nieuweRijen.length > 0) {
     const { error: insertError } = await supabase.from('geplande_taken').insert(nieuweRijen)
     if (insertError) throw createError({ statusCode: 500, statusMessage: insertError.message })
+  }
+
+  // Pas na een geslaagde insert de vorige (niet-vastgezette) planning weghalen,
+  // zodat een fout halverwege nooit een lege week achterlaat.
+  if (oudeGeplandeIds.length > 0) {
+    const { error: deleteError } = await supabase.from('geplande_taken').delete().in('id', oudeGeplandeIds)
+    if (deleteError) throw createError({ statusCode: 500, statusMessage: deleteError.message })
   }
 
   const taken = await haalGeplandeTaken(supabase, periodeStart, periodeEind)
