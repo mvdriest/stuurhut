@@ -15,7 +15,7 @@ export function useVandaag() {
   async function refresh() {
     pending.value = true
     try {
-      items.value = await useRequestFetch()('/api/vandaag')
+      items.value = await useRequestFetch()<VandaagPrioriteit[]>('/api/vandaag')
       return items.value
     } finally {
       pending.value = false

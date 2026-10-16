@@ -17,7 +17,7 @@ export function useTaken() {
   async function refresh() {
     pending.value = true
     try {
-      taken.value = await useRequestFetch()('/api/taken')
+      taken.value = await useRequestFetch()<Taak[]>('/api/taken')
       return taken.value
     } finally {
       pending.value = false

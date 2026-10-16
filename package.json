@@ -7,10 +7,12 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "typecheck": "nuxi typecheck"
   },
   "dependencies": {
     "@google/genai": "^2.15.0",
+    "@iconify-json/lucide": "^1.2.145",
     "@nuxt/ui": "^4.10.0",
     "@nuxtjs/supabase": "^2.0.10",
     "gsap": "^3.15.0",
@@ -18,5 +20,9 @@
     "vue": "^3.5.40",
     "vue-router": "^5.2.0",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vue-tsc": "^3.3.13"
   }
 }

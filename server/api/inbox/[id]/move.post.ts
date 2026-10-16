@@ -7,7 +7,7 @@ const bodySchema = z.union([
 
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await requireSupabaseUser(event)
-  const id = getRouterParam(event, 'id')
+  const id = requireRouterParam(event, 'id')
   const body = await readValidatedBody(event, bodySchema.parse)
 
   const { data: item } = await supabase.from('inbox_items').select('id, tekst').eq('id', id).single()

@@ -13,7 +13,7 @@ export function useJournal() {
   async function refresh() {
     pending.value = true
     try {
-      entries.value = await useRequestFetch()('/api/journal')
+      entries.value = await useRequestFetch()<JournalEntry[]>('/api/journal')
       return entries.value
     } finally {
       pending.value = false

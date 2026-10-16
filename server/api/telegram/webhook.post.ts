@@ -1,5 +1,7 @@
 import { timingSafeEqual } from 'node:crypto'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { serverSupabaseServiceRole } from '#supabase/server'
+import type { Database } from '../../../app/types/database.types'
 
 interface TelegramUpdate {
   message?: {
@@ -95,7 +97,7 @@ function isGeldigSecret(ontvangen: string | undefined, verwacht: string) {
 }
 
 async function verwerkClassificatie(
-  supabase: ReturnType<typeof serverSupabaseServiceRole>,
+  supabase: SupabaseClient<Database>,
   appUserId: string,
   classificatie: Awaited<ReturnType<typeof classifyTelegramBericht>>,
   trajecten: { id: string, naam: string }[]

@@ -48,9 +48,16 @@ and can be linked from a traject, but `server/utils/weekplanning.ts` doesn't rea
 npm run dev          # start dev server
 npm run build         # production build
 npm run preview        # preview a production build locally
+npm run typecheck      # nuxi typecheck (vue-tsc) — must stay at zero errors
 ```
 
-There is no test suite and no lint script configured yet. Schema changes go through the
+There is no test suite and no lint script configured yet. `npm run typecheck` relies on
+`app/types/database.types.ts` (the `@nuxtjs/supabase` default types path): without it every
+`supabase.from(...).insert/update` types as `never`. Regenerate it with the Supabase MCP
+`generate_typescript_types` tool after every schema migration. Composables pass an explicit
+response type to `useRequestFetch()<T>(...)` — leaving it to Nitro's typed-route inference
+trips TS's "excessive stack depth" limit. `[id]` routes read their param via
+`requireRouterParam(event, 'id')` (`server/utils/params.ts`), not raw `getRouterParam`. Schema changes go through the
 Supabase MCP tools (`apply_migration` for DDL, `execute_sql` for one-off data work) against
 project `rykjfdwxptfvrvbeltpg` — there is no local migration file / `drizzle-kit` step
 anymore.

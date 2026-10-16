@@ -12,7 +12,7 @@ export function useInbox() {
   async function refresh() {
     pending.value = true
     try {
-      items.value = await useRequestFetch()('/api/inbox')
+      items.value = await useRequestFetch()<InboxItem[]>('/api/inbox')
       return items.value
     } finally {
       pending.value = false
