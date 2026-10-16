@@ -11,21 +11,48 @@ const groet = computed(() => {
   const uur = nu.value.uur
   if (uur < 12) return 'Goedemorgen, Martijn'
   if (uur < 18) return 'Goedemiddag, Martijn'
-  return 'Goedenavond, Martijn'
+  if (uur < 22) return 'Goedenavond, Martijn'
+  return 'Nog laat, Martijn'
+})
+
+const subtitel = computed(() => {
+  const uur = nu.value.uur
+  return uur >= 22 || uur < 6
+    ? 'Misschien is dit een goed moment om het rustig aan te doen.'
+    : 'Rustig aan, één stap tegelijk — dat is genoeg.'
 })
 
 const datum = computed(() => formatDatumNl(nu.value))
 </script>
 
 <template>
-  <div class="bg-stuurhut-mist">
-    <AppHeaderFoto
-      :titel="groet"
-      subtitel="Rustig aan, één stap tegelijk — dat is genoeg."
-      :datum="datum"
-    />
+  <div>
+    <section class="stuurhut-kolom pt-[clamp(1.5rem,3vw,2rem)]">
+      <AppHeaderFoto
+        :titel="groet"
+        :subtitel="subtitel"
+        :datum="datum"
+      />
+    </section>
 
-    <DoelenOverzicht />
+    <section class="stuurhut-kolom py-[clamp(2rem,5vw,4rem)] flex flex-col gap-4">
+      <div class="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 items-stretch">
+        <VandaagJeDag />
+        <div class="flex flex-col gap-4">
+          <VandaagEenDing />
+          <VandaagNietVergeten />
+        </div>
+      </div>
+
+      <VandaagOpTafel />
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <VandaagWatErLoopt />
+        <VandaagHoeJeErVoorStaat id="financien" />
+      </div>
+    </section>
+
+    <DoelenOverzicht id="doelen" />
 
     <VandaagBord />
 

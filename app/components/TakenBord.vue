@@ -138,8 +138,8 @@ async function onDrop(status: Taak['status']) {
   gap: 0.75rem;
   padding: 1.25rem;
   border-radius: 1rem;
-  background-color: #fff;
-  box-shadow: 0 8px 22px rgb(0 0 0 / 0.07);
+  background-color: var(--color-stuurhut-card);
+  box-shadow: 0 8px 22px rgb(60 38 16 / 0.1);
   cursor: grab;
 }
 

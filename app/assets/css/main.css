@@ -6,11 +6,20 @@
   --font-sans: "helvetica-neue-lt-pro", Helvetica, Arial, sans-serif;
   --font-condensed: "helvetica-neue-lt-pro-cond", sans-serif;
 
-  --color-stuurhut-cream: #f5f0e6;
-  --color-stuurhut-ink: #1c1c1c;
-  /* Neutral light grey the concept uses behind the goal cards and the Vandaag board */
-  --color-stuurhut-mist: #e9e9e9;
-  --color-stuurhut-muted: #8b8b8b;
+  /* Palette from the "Stuurhut visueel ontwerp" Claude Design handoff: warm
+     cream background, near-white cards, near-black sidebar, terracotta accent. */
+  --color-stuurhut-cream: #f2ebdf;
+  --color-stuurhut-card: #fdfaf4;
+  --color-stuurhut-subtle: #f0e8d8;
+  --color-stuurhut-sidebar: oklch(16% 0.014 48);
+  --color-stuurhut-ink: oklch(26% 0.025 50);
+  /* Alias kept for the many existing `bg-stuurhut-mist` usages across pages — same value as cream. */
+  --color-stuurhut-mist: #f2ebdf;
+  --color-stuurhut-muted: oklch(50% 0.02 55);
+
+  --color-stuurhut-accent: oklch(66% 0.14 55);
+  --color-stuurhut-accent-van: oklch(60% 0.13 44);
+  --color-stuurhut-accent-tot: oklch(76% 0.13 74);
 
   --color-traject-groen: #35722f;
   --color-traject-rood: #e03a2c;
@@ -22,13 +31,21 @@
   --color-traject-grijs: #6b6b6b;
 
   /* Progress-bar gradient from the goal cards */
-  --color-stuurhut-voortgang-van: #e2d75f;
-  --color-stuurhut-voortgang-tot: #7d6b21;
+  --color-stuurhut-voortgang-van: var(--color-stuurhut-accent-van);
+  --color-stuurhut-voortgang-tot: var(--color-stuurhut-accent-tot);
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-stuurhut-mist);
+  background-color: var(--color-stuurhut-cream);
+  color: var(--color-stuurhut-ink);
+}
+
+/* Shared "kaart" pattern used by the restyled dashboard/overview cards. */
+.stuurhut-kaart {
+  background-color: var(--color-stuurhut-card);
+  border-radius: 1.25rem;
+  box-shadow: 0 10px 26px rgb(60 38 16 / 0.1);
 }
 
 .font-display {

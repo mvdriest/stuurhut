@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Doel } from '~/composables/useDoelen'
+import { gehaald, voortgang } from '~/utils/doelenVoortgang'
 
 const { doelen, pending, refresh } = useDoelen()
 
@@ -95,19 +96,16 @@ async function mijlpaalVerwijderen(id: string) {
   await $fetch(`/api/doelen/mijlpalen/${id}`, { method: 'DELETE' })
   await refresh()
 }
-
-function gehaald(doel: Doel) {
-  return doel.mijlpalen.filter(m => m.afgerond).length
-}
-
-function voortgang(doel: Doel) {
-  if (doel.mijlpalen.length === 0) return 0
-  return Math.round((gehaald(doel) / doel.mijlpalen.length) * 100)
-}
 </script>
 
 <template>
-  <section class="stuurhut-kolom doelen">
+  <section class="stuurhut-kolom py-[clamp(2rem,5vw,4rem)]">
+    <div class="flex items-baseline gap-3 flex-wrap mb-4">
+      <h2 class="doelen-kop">Waar je naartoe werkt</h2>
+      <span class="doelen-lijn" />
+      <span class="text-xs text-stuurhut-muted">Eerstvolgende mijlpaal per doel</span>
+    </div>
+    <div class="doelen">
     <article
       v-for="doel in doelen"
       :key="doel.id"
@@ -195,28 +193,42 @@ function voortgang(doel: Doel) {
         <span>{{ pending || doelen.length ? 'Doel toevoegen' : 'Je eerste doel' }}</span>
       </button>
     </article>
+    </div>
   </section>
 </template>
 
 <style scoped>
+.doelen-kop {
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--color-stuurhut-ink);
+}
+
+.doelen-lijn {
+  flex: 1;
+  min-width: 2.5rem;
+  height: 1px;
+  background: oklch(82% 0.02 66);
+}
+
 .doelen {
   display: grid;
   grid-template-columns: 1fr;
-  gap: clamp(1rem, 2.3vw, 2.75rem);
-  /* De kaarten schuiven over de onderkant van de hero heen. */
-  margin-top: calc(-1 * clamp(3rem, 11vw, 13rem));
-  position: relative;
-  z-index: 2;
+  gap: clamp(1rem, 2.3vw, 1.5rem);
 }
 
 .doelkaart {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  padding: clamp(1.5rem, 2vw, 2.25rem);
+  padding: clamp(1.25rem, 1.6vw, 1.5rem);
   border-radius: 1.25rem;
-  background-color: #fff;
-  box-shadow: 0 18px 40px rgb(0 0 0 / 0.12);
+  background-color: var(--color-stuurhut-card);
+  box-shadow: 0 14px 34px rgb(60 38 16 / 0.14);
 }
 
 .doelkaart--klaar {
@@ -249,11 +261,9 @@ function voortgang(doel: Doel) {
 }
 
 .doelkaart__titel {
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: clamp(1.75rem, 2.4vw, 2.75rem);
-  line-height: 0.95;
-  letter-spacing: -0.01em;
+  font-weight: 700;
+  font-size: clamp(1.0625rem, 1.3vw, 1.25rem);
+  line-height: 1.25;
   color: var(--color-stuurhut-ink);
 }
 
@@ -266,7 +276,7 @@ function voortgang(doel: Doel) {
   font-family: var(--font-display);
   font-size: clamp(1.5rem, 2vw, 2.25rem);
   line-height: 0.9;
-  color: var(--color-stuurhut-ink);
+  color: var(--color-stuurhut-accent-van);
 }
 
 .doelkaart__balk {
