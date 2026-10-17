@@ -31,9 +31,11 @@ export default defineEventHandler(async (event) => {
     })
     if (insertError) throw createError({ statusCode: 500, statusMessage: insertError.message })
   } else {
+    // Naar een traject = een nieuwe taak bij dat traject (op de halte waar het nu is),
+    // niet het overschrijven van de "volgende stap": zo raak je daar niets mee kwijt.
     const { data: traject } = await supabase
       .from('trajecten')
-      .update({ eerstvolgende_actie: item.tekst, updated_at: new Date().toISOString() })
+      .update({ updated_at: new Date().toISOString() })
       .eq('id', body.trajectId)
       .select('id')
       .single()
@@ -41,6 +43,24 @@ export default defineEventHandler(async (event) => {
     if (!traject) {
       throw createError({ statusCode: 404, statusMessage: 'Traject niet gevonden.' })
     }
+
+    const { data: halte } = await supabase
+      .from('traject_haltes')
+      .select('id')
+      .eq('traject_id', body.trajectId)
+      .is('afgerond_op', null)
+      .order('volgorde')
+      .limit(1)
+      .maybeSingle()
+
+    const { error: insertError } = await supabase.from('subtaken').insert({
+      user_id: user.id,
+      traject_id: body.trajectId,
+      halte_id: halte?.id ?? null,
+      tekst: item.tekst,
+      geschatte_duur: 30
+    })
+    if (insertError) throw createError({ statusCode: 500, statusMessage: insertError.message })
   }
 
   // Pas verwijderen als het verplaatsen gelukt is, anders ben je het item kwijt.
