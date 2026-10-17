@@ -99,6 +99,60 @@ async function opslaan(payload: Record<string, unknown>) {
   await routeGewijzigd()
 }
 
+// Inline bewerken van één blok tegelijk (contact, reiskas, volgende stap), zodat je
+// het dossier gaandeweg aanvult in plaats van alles vooraf in één formulier.
+type Blok = 'contact' | 'kas' | 'stap'
+const bewerkBlok = ref<Blok | null>(null)
+const concept = reactive({
+  contactpersoon: '', contactTelefoon: '', contactEmail: '', contactVoorkeur: '',
+  bedragAfgesproken: null as number | null, bedragGefactureerd: null as number | null, financieelNotitie: '',
+  eerstvolgendeActie: ''
+})
+
+function startBewerken(blok: Blok) {
+  const t = traject.value
+  if (!t) return
+  Object.assign(concept, {
+    contactpersoon: t.contactpersoon ?? '',
+    contactTelefoon: t.contactTelefoon ?? '',
+    contactEmail: t.contactEmail ?? '',
+    contactVoorkeur: t.contactVoorkeur ?? '',
+    bedragAfgesproken: t.bedragAfgesproken,
+    bedragGefactureerd: t.bedragGefactureerd,
+    financieelNotitie: t.financieelNotitie ?? '',
+    eerstvolgendeActie: t.eerstvolgendeActie ?? ''
+  })
+  bewerkBlok.value = blok
+}
+
+// Een leeg number-input geeft '' terug; de API verwacht dan null.
+const bedrag = (n: number | string | null) => (n === '' || n === null ? null : Number(n))
+
+async function blokOpslaan() {
+  const velden: Record<Blok, Record<string, unknown>> = {
+    contact: {
+      contactpersoon: concept.contactpersoon.trim(),
+      contactTelefoon: concept.contactTelefoon.trim(),
+      contactEmail: concept.contactEmail.trim(),
+      contactVoorkeur: concept.contactVoorkeur.trim()
+    },
+    kas: {
+      bedragAfgesproken: bedrag(concept.bedragAfgesproken),
+      bedragGefactureerd: bedrag(concept.bedragGefactureerd),
+      financieelNotitie: concept.financieelNotitie.trim()
+    },
+    stap: { eerstvolgendeActie: concept.eerstvolgendeActie.trim() }
+  }
+  // Eerst sluiten: blur en submit kunnen allebei afgaan (klik op het vinkje), zo slaat er maar één op.
+  const blok = bewerkBlok.value
+  if (!blok) return
+  bewerkBlok.value = null
+  await $fetch(`/api/trajecten/${trajectId.value}`, { method: 'PATCH', body: velden[blok] })
+  await refreshTrajecten()
+}
+
+const heeftContact = computed(() => !!(traject.value?.contactpersoon || traject.value?.contactEmail || traject.value?.contactTelefoon))
+
 // Nog geen route: diensten kiezen en uitstippelen.
 const startDiensten = ref<Dienst[]>([])
 watch(traject, t => { if (t && !startDiensten.value.length) startDiensten.value = [...t.diensten] }, { immediate: true })
@@ -203,8 +257,23 @@ function formProps(t: Traject) {
           </div>
         </div>
 
-        <section v-if="traject.contactpersoon || traject.contactEmail || traject.contactTelefoon" class="sh-kaart">
-          <h2 class="sh-kop"><UIcon name="i-lucide-user-round" class="size-5" /> Reisgenoot</h2>
+        <!-- Reisgenoot -->
+        <form v-if="bewerkBlok === 'contact'" class="sh-kaart flex flex-col gap-2" @submit.prevent="blokOpslaan" @keydown.esc="bewerkBlok = null">
+          <h2 class="sh-kop mb-1"><UIcon name="i-lucide-user-round" class="size-5" /> Reisgenoot</h2>
+          <UInput v-model="concept.contactpersoon" placeholder="Naam" autofocus />
+          <UInput v-model="concept.contactTelefoon" type="tel" placeholder="Telefoon" />
+          <UInput v-model="concept.contactEmail" type="email" placeholder="E-mail" />
+          <UInput v-model="concept.contactVoorkeur" placeholder="Voorkeur, bijv. belt liefst" />
+          <div class="flex justify-end gap-2 mt-1">
+            <UButton color="neutral" variant="ghost" size="sm" @click="bewerkBlok = null">Annuleren</UButton>
+            <UButton type="submit" size="sm">Opslaan</UButton>
+          </div>
+        </form>
+        <section v-else-if="heeftContact" class="sh-kaart">
+          <div class="flex items-center justify-between">
+            <h2 class="sh-kop"><UIcon name="i-lucide-user-round" class="size-5" /> Reisgenoot</h2>
+            <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" aria-label="Contact bewerken" @click="startBewerken('contact')" />
+          </div>
           <div class="flex items-center gap-3 mt-3">
             <span class="dossier__avatar" :style="{ background: trajectKleurHex[traject.kleur] }">{{ initialen }}</span>
             <div class="min-w-0">
@@ -225,8 +294,26 @@ function formProps(t: Traject) {
           </div>
         </section>
 
-        <section v-if="traject.bedragAfgesproken" class="sh-kaart">
-          <h2 class="sh-kop"><UIcon name="i-lucide-wallet" class="size-5" /> Reiskas</h2>
+        <!-- Reiskas -->
+        <form v-if="bewerkBlok === 'kas'" class="sh-kaart flex flex-col gap-2" @submit.prevent="blokOpslaan" @keydown.esc="bewerkBlok = null">
+          <h2 class="sh-kop mb-1"><UIcon name="i-lucide-wallet" class="size-5" /> Reiskas</h2>
+          <UFormField label="Afgesproken (€)" size="sm">
+            <UInput v-model.number="concept.bedragAfgesproken" type="number" min="0" step="0.01" autofocus class="w-full" />
+          </UFormField>
+          <UFormField label="Gefactureerd (€)" size="sm">
+            <UInput v-model.number="concept.bedragGefactureerd" type="number" min="0" step="0.01" class="w-full" />
+          </UFormField>
+          <UInput v-model="concept.financieelNotitie" placeholder="Notitie, bijv. termijnen" />
+          <div class="flex justify-end gap-2 mt-1">
+            <UButton color="neutral" variant="ghost" size="sm" @click="bewerkBlok = null">Annuleren</UButton>
+            <UButton type="submit" size="sm">Opslaan</UButton>
+          </div>
+        </form>
+        <section v-else-if="traject.bedragAfgesproken" class="sh-kaart">
+          <div class="flex items-center justify-between">
+            <h2 class="sh-kop"><UIcon name="i-lucide-wallet" class="size-5" /> Reiskas</h2>
+            <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" aria-label="Reiskas bewerken" @click="startBewerken('kas')" />
+          </div>
           <div class="flex items-baseline justify-between gap-2 mt-3">
             <strong class="sh-titel text-[1.75rem]">{{ eur(traject.bedragGefactureerd ?? 0) }}</strong>
             <span class="text-xs text-stuurhut-muted text-right">van {{ eur(traject.bedragAfgesproken) }} gefactureerd</span>
@@ -234,6 +321,16 @@ function formProps(t: Traject) {
           <div class="dossier__kas"><span :style="{ width: `${kasPct}%` }" /></div>
           <p v-if="traject.financieelNotitie" class="text-xs text-stuurhut-muted mt-2">{{ traject.financieelNotitie }}</p>
         </section>
+
+        <!-- Wat nog ontbreekt: één tik om aan te vullen -->
+        <div v-if="!bewerkBlok && (!heeftContact || (traject.scope === 'zakelijk' && !traject.bedragAfgesproken))" class="flex flex-wrap gap-1.5">
+          <button v-if="!heeftContact" type="button" class="dossier__aanvullen" @click="startBewerken('contact')">
+            <UIcon name="i-lucide-plus" class="size-3.5" /> Contact
+          </button>
+          <button v-if="traject.scope === 'zakelijk' && !traject.bedragAfgesproken" type="button" class="dossier__aanvullen" @click="startBewerken('kas')">
+            <UIcon name="i-lucide-plus" class="size-3.5" /> Bedrag
+          </button>
+        </div>
 
         <section v-if="traject.wachtOp" class="sh-kaart flex gap-3 items-start">
           <span class="dossier__wacht"><UIcon name="i-lucide-hourglass" class="size-4" /></span>
@@ -243,12 +340,19 @@ function formProps(t: Traject) {
           </div>
         </section>
 
-        <button type="button" class="sh-cta" @click="bewerkenOpen = true">
+        <form v-if="bewerkBlok === 'stap'" class="sh-cta" @submit.prevent="blokOpslaan" @keydown.esc="bewerkBlok = null">
           <span class="flex-1 min-w-0">
+            <span class="sh-kicker !text-stuurhut-ink/60 block">Volgende stap</span>
+            <input v-model="concept.eerstvolgendeActie" class="dossier__stapinput" placeholder="Wat is de volgende stap?" autofocus @blur="blokOpslaan">
+          </span>
+          <button type="submit" class="sh-cta__pijl" aria-label="Opslaan"><UIcon name="i-lucide-check" class="size-5" /></button>
+        </form>
+        <button v-else type="button" class="sh-cta" @click="startBewerken('stap')">
+          <span class="flex-1 min-w-0 text-left">
             <span class="sh-kicker !text-stuurhut-ink/60 block">Volgende stap</span>
             <span class="font-semibold">{{ traject.eerstvolgendeActie || 'Bepaal de volgende stap' }}</span>
           </span>
-          <span class="sh-cta__pijl"><UIcon name="i-lucide-arrow-right" class="size-5" /></span>
+          <span class="sh-cta__pijl"><UIcon name="i-lucide-pencil" class="size-5" /></span>
         </button>
       </aside>
 
@@ -501,6 +605,35 @@ function formProps(t: Traject) {
   border-radius: 0.75rem;
   background: #fdecc8;
   color: #b5651d;
+}
+
+.dossier__aanvullen {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 9999px;
+  border: 1.5px dashed rgb(28 28 28 / 0.25);
+  background: rgb(253 250 244 / 0.7);
+  font-size: 0.8rem;
+  color: var(--color-stuurhut-muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.dossier__aanvullen:hover {
+  background: rgb(253 250 244 / 0.95);
+  color: var(--color-stuurhut-ink);
+}
+
+.dossier__stapinput {
+  width: 100%;
+  background: transparent;
+  font-weight: 600;
+  outline: none;
+}
+
+.dossier__stapinput::placeholder {
+  color: rgb(28 28 28 / 0.45);
 }
 
 .dossier__routelijst {

@@ -147,11 +147,11 @@ async function maakTraject(payload: Record<string, unknown>) {
       </div>
     </div>
 
-    <USlideover v-model:open="nieuwOpen" title="Nieuw traject" side="right">
+    <UModal v-model:open="nieuwOpen" title="Nieuw traject" description="Alleen de naam is nodig. De rest vul je aan in het dossier.">
       <template #body>
-        <TrajectForm submit-label="Reis beginnen" @submit="maakTraject" @cancel="nieuwOpen = false" />
+        <TrajectNieuw @submit="maakTraject" @cancel="nieuwOpen = false" />
       </template>
-    </USlideover>
+    </UModal>
   </div>
 </template>
 
