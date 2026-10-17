@@ -30,7 +30,7 @@ export function useDoelen() {
   async function refresh() {
     pending.value = true
     try {
-      doelen.value = await useRequestFetch()('/api/doelen')
+      doelen.value = await useRequestFetch()<Doel[]>('/api/doelen')
       return doelen.value
     } finally {
       pending.value = false

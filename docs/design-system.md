@@ -199,3 +199,31 @@ daarom `color: inherit` op labels en op de ghost-knoppen in dat gebied.
 5. "Plannen & vastleggen" — Weekplanning, Vandaag-3-prioriteiten en Inbox. Deze staan
    **niet** in het concept maar zijn wel in gebruik; ze zijn bewust onderaan geplaatst in
    plaats van verwijderd.
+
+---
+
+## 10. De kaartstijl (huidige stijl, geldt voor alle pagina's)
+
+> Vervangt §4 (header-foto), §5 (folder-tab) en §9 (dashboardopbouw): die componenten
+> bestaan niet meer. De kaartpagina (`/`) is het referentieontwerp; elke andere pagina
+> staat in hetzelfde landschap.
+
+- **Achtergrond**: `Landschap.vue` — lucht, bergen, drie lagen heuvels. In de layout vast
+  achter de pagina (horizon laag, ~64%); in het klantdossier als scène met hoge horizon
+  (27%) zodat de route over de heuvels naar de bergen loopt.
+- **Menu**: `AppMenu.vue`, de Osmo "Scaling Hamburger Navigation", vast linksboven op elke
+  pagina (ook de kaart). Elke paginabalk laat links `3.75rem` vrij voor de knop.
+- **Paginakop**: `PaginaKop.vue` — chips in de balk (`#balk-links`, `#balk-rechts`), titel in
+  Komu, optionele `kicker` (monospace bovenregel) en acties rechts.
+- **Klassen** (in `main.css`):
+  - `.sh-kaart` / `.sh-glas`: glazen crème kaart (`--color-stuurhut-glas`, blur, radius 1.25rem)
+  - `.sh-kop`: kaartkop in Helvetica semibold met icoon — níet Komu
+  - `.sh-titel`: Komu, voor namen en paginatitels
+  - `.sh-kicker`: monospace caps-bovenregel ("VOLGENDE STAP")
+  - `.sh-chip`, `.sh-segment`: bovenbalk-chips en segmentknoppen
+  - `.sh-cta`: limoen — **één per scherm**, voor de belangrijkste actie
+  - `.sh-pil`: donkere zwevende pil (Preview Dag, Speel de reis af, focus-timer)
+- **Nuxt UI** staat via `--ui-*`-variabelen en `app.config.ts` op het crème-palet; knoppen
+  zijn inkt (`primary: 'neutral'` + `--ui-primary`).
+- **Dienstkleuren** (`DIENST_INFO` in `app/utils/route.ts`): branding paars, website blauw,
+  video roze, foto oranje. Afgelegde haltes krijgen de kleur van hun dienst.

@@ -100,10 +100,9 @@ async function mijlpaalVerwijderen(id: string) {
 
 <template>
   <section class="stuurhut-kolom py-[clamp(2rem,5vw,4rem)]">
-    <div class="flex items-baseline gap-3 flex-wrap mb-4">
-      <h2 class="doelen-kop">Waar je naartoe werkt</h2>
-      <span class="doelen-lijn" />
-      <span class="text-xs text-stuurhut-muted">Eerstvolgende mijlpaal per doel</span>
+    <div class="mb-5">
+      <p class="sh-kicker">Doelen · eerstvolgende mijlpaal per doel</p>
+      <h2 class="sh-titel text-[clamp(1.75rem,3vw,2.5rem)] mt-1">Waar je naartoe werkt</h2>
     </div>
     <div class="doelen">
     <article
@@ -198,23 +197,6 @@ async function mijlpaalVerwijderen(id: string) {
 </template>
 
 <style scoped>
-.doelen-kop {
-  font-family: var(--font-display);
-  font-weight: 400;
-  text-transform: uppercase;
-  font-size: clamp(1.75rem, 3vw, 2.25rem);
-  line-height: 1;
-  letter-spacing: 0.02em;
-  color: var(--color-stuurhut-ink);
-}
-
-.doelen-lijn {
-  flex: 1;
-  min-width: 2.5rem;
-  height: 1px;
-  background: oklch(82% 0.02 66);
-}
-
 .doelen {
   display: grid;
   grid-template-columns: 1fr;
@@ -227,8 +209,9 @@ async function mijlpaalVerwijderen(id: string) {
   gap: 1.25rem;
   padding: clamp(1.25rem, 1.6vw, 1.5rem);
   border-radius: 1.25rem;
-  background-color: var(--color-stuurhut-card);
-  box-shadow: 0 14px 34px rgb(60 38 16 / 0.14);
+  background: var(--color-stuurhut-glas);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
 }
 
 .doelkaart--klaar {
@@ -238,13 +221,12 @@ async function mijlpaalVerwijderen(id: string) {
 .doelkaart__pil {
   align-self: flex-start;
   border-radius: 9999px;
-  background-color: #e4e4e4;
+  background-color: var(--color-stuurhut-subtle);
   color: var(--color-stuurhut-ink);
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: clamp(0.875rem, 1vw, 1.125rem);
+  font-size: 0.72rem;
+  font-weight: 600;
   line-height: 1;
-  padding: 0.75em 1.35em;
+  padding: 0.4em 0.75em;
 }
 
 .doelkaart__acties {

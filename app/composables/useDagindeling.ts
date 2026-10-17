@@ -23,7 +23,7 @@ export function useDagindeling() {
   async function refresh() {
     pending.value = true
     try {
-      blokken.value = await useRequestFetch()('/api/dagindeling')
+      blokken.value = await useRequestFetch()<DagBlok[]>('/api/dagindeling')
       return blokken.value
     } finally {
       pending.value = false
@@ -31,7 +31,7 @@ export function useDagindeling() {
   }
 
   async function opslaan(nieuw: DagBlokInvoer[]) {
-    blokken.value = await $fetch('/api/dagindeling', { method: 'POST', body: { blokken: nieuw } })
+    blokken.value = await $fetch<DagBlok[]>('/api/dagindeling', { method: 'POST', body: { blokken: nieuw } })
   }
 
   return { blokken, pending, refresh, opslaan }

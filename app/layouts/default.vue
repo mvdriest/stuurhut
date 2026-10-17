@@ -1,10 +1,12 @@
 <script setup lang="ts">
-const user = useSupabaseUser()
+// Elke pagina staat in hetzelfde landschap als de kaart; de inhoud zweeft erboven
+// in glazen kaarten. Het menu (AppMenu) zit globaal in app.vue.
+const route = useRoute()
 </script>
 
 <template>
-  <div class="stuurhut-layout" :class="{ 'stuurhut-layout--ingelogd': user }">
-    <AppSidebar v-if="user" />
+  <div class="stuurhut-layout">
+    <Landschap :horizon="(route.meta.horizon as number | undefined) ?? 64" />
     <main class="stuurhut-layout__main">
       <slot />
     </main>
@@ -13,19 +15,15 @@ const user = useSupabaseUser()
 
 <style scoped>
 .stuurhut-layout {
-  display: flex;
-  align-items: flex-start;
+  position: relative;
   min-height: 100vh;
-  background-color: var(--color-stuurhut-cream);
   color: var(--color-stuurhut-ink);
 }
 
 .stuurhut-layout__main {
-  flex: 1;
-  min-width: 0;
-}
-
-.stuurhut-layout--ingelogd .stuurhut-layout__main {
+  position: relative;
+  z-index: 1;
   min-height: 100vh;
+  padding-bottom: 7rem;
 }
 </style>

@@ -1,6 +1,6 @@
 export default defineEventHandler(async (event) => {
   const { supabase } = await requireSupabaseUser(event)
-  const id = getRouterParam(event, 'id')
+  const id = requireRouterParam(event, 'id')
 
   const { data, error } = await supabase
     .from('traject_bestanden')

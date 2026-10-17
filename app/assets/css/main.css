@@ -30,9 +30,32 @@
   --color-traject-roze: #d9427f;
   --color-traject-grijs: #6b6b6b;
 
+  /* De wereld van de kaart: lucht, heuvels, limoen als enige felle accentkleur. */
+  --color-stuurhut-lucht: #bcd8f2;
+  --color-stuurhut-limoen: #e4f28a;
+  --color-stuurhut-limoen-diep: #c9e65a;
+  --color-stuurhut-glas: rgb(253 250 244 / 0.92);
+
   /* Progress-bar gradient from the goal cards */
   --color-stuurhut-voortgang-van: var(--color-stuurhut-accent-van);
   --color-stuurhut-voortgang-tot: var(--color-stuurhut-accent-tot);
+}
+
+/* Nuxt UI op het crème-palet: invoervelden, menu's en panelen horen bij de kaart. */
+:root {
+  --ui-bg: #fdfaf4;
+  --ui-bg-muted: #f6f0e4;
+  --ui-bg-elevated: #f0e8d8;
+  --ui-bg-accented: #e7dcc8;
+  --ui-border: rgb(60 40 20 / 0.1);
+  --ui-border-muted: rgb(60 40 20 / 0.07);
+  --ui-border-accented: rgb(60 40 20 / 0.16);
+  --ui-text: var(--color-stuurhut-ink);
+  --ui-text-highlighted: var(--color-stuurhut-ink);
+  --ui-text-muted: var(--color-stuurhut-muted);
+  --ui-radius: 0.6rem;
+  /* "primary: neutral" geeft standaard grijs-500; knoppen horen inkt te zijn. */
+  --ui-primary: var(--color-stuurhut-ink);
 }
 
 body {
@@ -41,11 +64,183 @@ body {
   color: var(--color-stuurhut-ink);
 }
 
-/* Shared "kaart" pattern used by the restyled dashboard/overview cards. */
-.stuurhut-kaart {
-  background-color: var(--color-stuurhut-card);
+/* ---------------------------------------------------------------------------------
+   Stijl van de kaart, gedeeld door alle pagina's (zie docs/design-system.md §10).
+   Glazen crème kaarten die boven een landschap zweven, chips in de bovenbalk,
+   limoen voor de ene belangrijkste actie, een donkere pil voor zwevende knoppen.
+   --------------------------------------------------------------------------------- */
+
+.sh-glas {
+  background: var(--color-stuurhut-glas);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-radius: 1.25rem;
-  box-shadow: 0 10px 26px rgb(60 38 16 / 0.1);
+  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
+}
+
+.sh-kaart {
+  background: var(--color-stuurhut-glas);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 1.25rem;
+  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
+  padding: 1.25rem;
+  color: var(--color-stuurhut-ink);
+}
+
+.sh-kop {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.sh-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  height: 3.25rem;
+  padding: 0 1.25rem;
+  border-radius: 1rem;
+  background: rgb(253 250 244 / 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 6px 20px rgb(30 40 50 / 0.12);
+}
+
+/* Kleine monospaced bovenregel, zoals "PLAN JE DAG" en "VOLGENDE STAP". */
+.sh-kicker {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-stuurhut-muted);
+}
+
+.sh-titel {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+.sh-cta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 0.9rem 0.9rem 1.25rem;
+  border-radius: 1.25rem;
+  background: var(--color-stuurhut-limoen);
+  color: var(--color-stuurhut-ink);
+  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
+  text-align: left;
+  transition: transform 180ms;
+}
+
+.sh-cta:hover {
+  transform: translateY(-2px);
+}
+
+.sh-cta__pijl {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  flex-shrink: 0;
+  border-radius: 0.9rem;
+  background: rgb(0 0 0 / 0.08);
+}
+
+.sh-pil {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.6rem 0.6rem 0.6rem 1.5rem;
+  border-radius: 9999px;
+  background: rgb(38 38 38 / 0.88);
+  color: #fff;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.25);
+}
+
+.sh-pil__rond {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  background: var(--color-stuurhut-limoen);
+  color: #262626;
+}
+
+/* Segmentknop (Alle / Zakelijk / Privé, Reis / Pijplijn) in een chip. */
+.sh-segment {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.3rem;
+  border-radius: 0.9rem;
+  background: rgb(253 250 244 / 0.9);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 6px 20px rgb(30 40 50 / 0.12);
+}
+
+.sh-segment > button,
+.sh-segment > a {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.95rem;
+  border-radius: 0.65rem;
+  font-size: 0.875rem;
+  color: var(--color-stuurhut-muted);
+  transition: background-color 150ms, color 150ms;
+}
+
+.sh-segment > [aria-pressed="true"],
+.sh-segment > .is-actief {
+  background: var(--color-stuurhut-ink);
+  color: #fff;
+}
+
+/* Rij in een kaart: label links, waarde rechts, dunne lijn ertussen. */
+.sh-rij {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid rgb(0 0 0 / 0.07);
+}
+
+.sh-rij:last-child {
+  border-bottom: 0;
+}
+
+.sh-vink {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 0.35rem;
+  border: 1.5px solid rgb(0 0 0 / 0.25);
+  color: #fff;
+  transition: background-color 150ms;
+}
+
+.sh-vink--aan {
+  background: var(--color-stuurhut-ink);
+  border-color: var(--color-stuurhut-ink);
+}
+
+/* Oudere naam voor .sh-glas; nog in gebruik in een paar componenten. */
+.stuurhut-kaart {
+  background: var(--color-stuurhut-glas);
+  backdrop-filter: blur(12px);
+  border-radius: 1.25rem;
+  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
 }
 
 .font-display {
@@ -53,12 +248,12 @@ body {
   letter-spacing: -0.01em;
 }
 
-/* Contentkolom van het concept: 160px marge op een 1920-frame. */
+/* Contentkolom: dezelfde 1.25rem rand als de kaart, op brede schermen iets ruimer. */
 .stuurhut-kolom {
   width: 100%;
-  max-width: 140rem;
+  max-width: 96rem;
   margin-inline: auto;
-  padding-inline: clamp(1.25rem, 8.34vw, 10rem);
+  padding-inline: clamp(1.25rem, 3vw, 2.5rem);
 }
 
 /* Section headings in the concept are oversized condensed display caps. */

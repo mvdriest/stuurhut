@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { TrajectKleur } from '~/utils/kleuren'
+import type { Dienst } from '~/utils/route'
+import { DIENSTEN, DIENST_INFO } from '~/utils/route'
 
 const props = defineProps<{
   naam?: string
@@ -17,6 +19,7 @@ const props = defineProps<{
   contactTelefoon?: string | null
   contactEmail?: string | null
   contactVoorkeur?: string | null
+  diensten?: Dienst[]
   submitLabel: string
 }>()
 
@@ -36,6 +39,7 @@ type TrajectFormPayload = {
   contactTelefoon: string
   contactEmail: string
   contactVoorkeur: string
+  diensten: Dienst[]
 }
 
 const emit = defineEmits<{
@@ -58,6 +62,11 @@ const contactpersoon = ref(props.contactpersoon ?? '')
 const contactTelefoon = ref(props.contactTelefoon ?? '')
 const contactEmail = ref(props.contactEmail ?? '')
 const contactVoorkeur = ref(props.contactVoorkeur ?? '')
+const diensten = ref<Dienst[]>([...(props.diensten ?? [])])
+
+function wisselDienst(d: Dienst) {
+  diensten.value = diensten.value.includes(d) ? diensten.value.filter(x => x !== d) : [...diensten.value, d]
+}
 
 const { doelen, refresh: refreshDoelen } = useDoelen()
 await useAsyncData('traject-form-doelen-init', () => doelen.value.length ? Promise.resolve(doelen.value) : refreshDoelen())
@@ -95,7 +104,8 @@ function onSubmit() {
     contactpersoon: contactpersoon.value.trim(),
     contactTelefoon: contactTelefoon.value.trim(),
     contactEmail: contactEmail.value.trim(),
-    contactVoorkeur: contactVoorkeur.value.trim()
+    contactVoorkeur: contactVoorkeur.value.trim(),
+    diensten: scope.value === 'zakelijk' ? diensten.value : []
   })
 }
 </script>
@@ -116,6 +126,21 @@ function onSubmit() {
     </UFormField>
     <UFormField label="Zakelijk of privé">
       <USelect v-model="scope" :items="scopeOptions" value-key="value" class="w-full" />
+    </UFormField>
+    <UFormField v-if="scope === 'zakelijk'" label="Diensten" help="Bepaalt de route van de klant. Later aan te passen in het dossier.">
+      <div class="flex gap-2 flex-wrap">
+        <button
+          v-for="d in DIENSTEN"
+          :key="d"
+          type="button"
+          class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm transition"
+          :class="diensten.includes(d) ? 'bg-stuurhut-ink text-white' : 'bg-stuurhut-subtle text-stuurhut-muted'"
+          :aria-pressed="diensten.includes(d)"
+          @click="wisselDienst(d)"
+        >
+          <UIcon :name="DIENST_INFO[d].icoon" class="size-4" /> {{ DIENST_INFO[d].label }}
+        </button>
+      </div>
     </UFormField>
     <UFormField label="Streefdatum">
       <UInput v-model="streefdatum" type="date" class="w-full" />

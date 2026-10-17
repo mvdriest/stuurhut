@@ -6,6 +6,8 @@ export interface Taak {
   geschatteDuur: number
   status: 'to_do' | 'bezig' | 'review' | 'klaar'
   volgorde: number
+  klaarOp: string | null
+  halteId: string | null
   createdAt: string
 }
 
@@ -16,7 +18,7 @@ export function useTaken() {
   async function refresh() {
     pending.value = true
     try {
-      taken.value = await useRequestFetch()('/api/taken')
+      taken.value = await useRequestFetch()<Taak[]>('/api/taken')
       return taken.value
     } finally {
       pending.value = false

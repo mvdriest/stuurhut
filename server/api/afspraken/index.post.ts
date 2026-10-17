@@ -4,10 +4,10 @@ const bodySchema = z.object({
   titel: z.string().min(1),
   categorie: z.enum(['klantwerk', 'eigen_werk', 'prive']),
   trajectId: z.string().uuid().nullable().optional(),
-  datum: z.string().min(1),
-  startTijd: z.string().min(1),
-  eindTijd: z.string().min(1)
-})
+  datum: z.string().regex(DATUM_REGEX),
+  startTijd: z.string().regex(TIJD_REGEX),
+  eindTijd: z.string().regex(TIJD_REGEX)
+}).refine(a => a.eindTijd > a.startTijd, { message: 'Eindtijd moet na de starttijd liggen.' })
 
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await requireSupabaseUser(event)

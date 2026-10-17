@@ -14,7 +14,7 @@ await useAsyncData('agenda-init', () => Promise.all([refreshWeekplanning(), refr
 const WEEKDAG_LABELS = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za']
 
 function vandaag(): string {
-  return new Date().toLocaleDateString('en-CA')
+  return nederlandseDatum()
 }
 
 function tijdNaarMinuten(tijd: string | null): number | null {
@@ -122,9 +122,10 @@ function kiesDag(datum: string) {
 }
 
 const legenda = [
-  { label: 'Klantwerk', klasse: 'agendagrid__item--klantwerk' },
-  { label: 'Eigen werk', klasse: 'agendagrid__item--eigen_werk' },
-  { label: 'Privé', klasse: 'agendagrid__item--prive' }
+  // Zelfde kleuren als de blokken in AgendaGrid.vue (die zijn daar scoped).
+  { label: 'Klantwerk', kleur: '#2544d8' },
+  { label: 'Eigen werk', kleur: '#9fb82e' },
+  { label: 'Privé', kleur: '#4f7a48' }
 ]
 
 const isToevoegen = ref(false)
@@ -160,32 +161,29 @@ async function afspraakToevoegen() {
 </script>
 
 <template>
-  <div class="bg-stuurhut-mist min-h-screen">
-    <AppHeaderFoto compact titel="Agenda" subtitel="Zakelijk en privé in één overzicht." />
-
-    <div class="stuurhut-kolom flex flex-col gap-5 py-[clamp(2rem,5vw,4rem)]">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <span class="text-sm text-stuurhut-muted">
-          {{ weergave === 'maand' ? maandLabel : weergave === 'dag' ? geselecteerdeDagLabel : weekRangeLabel }}
-        </span>
-        <div class="flex items-center gap-2">
-          <div class="flex items-center gap-1 rounded-full bg-black/5 p-1">
-            <button
-              v-for="mode in [{ key: 'dag', label: 'Dag' }, { key: 'week', label: 'Week' }, { key: 'maand', label: 'Maand' }]"
-              :key="mode.key"
-              type="button"
-              class="agenda__modus"
-              :class="{ 'agenda__modus--actief': weergave === mode.key }"
-              @click="weergave = mode.key as typeof weergave"
-            >
-              {{ mode.label }}
-            </button>
-          </div>
-          <UButton icon="i-lucide-plus" class="rounded-full" @click="isToevoegen = !isToevoegen">Toevoegen</UButton>
+  <div>
+    <PaginaKop titel="Agenda" :subtitel="weergave === 'maand' ? maandLabel : weergave === 'dag' ? geselecteerdeDagLabel : weekRangeLabel">
+      <template #balk-links>
+        <div class="sh-segment" role="group" aria-label="Weergave">
+          <button
+            v-for="mode in [{ key: 'dag', label: 'Dag' }, { key: 'week', label: 'Week' }, { key: 'maand', label: 'Maand' }]"
+            :key="mode.key"
+            type="button"
+            :aria-pressed="weergave === mode.key"
+            @click="weergave = mode.key as typeof weergave"
+          >
+            {{ mode.label }}
+          </button>
         </div>
-      </div>
+      </template>
+      <button type="button" class="sh-cta !py-2 !pl-4 !pr-2" @click="isToevoegen = !isToevoegen">
+        <span class="font-semibold text-sm">Afspraak</span>
+        <span class="sh-cta__pijl !size-9"><UIcon :name="isToevoegen ? 'i-lucide-x' : 'i-lucide-plus'" class="size-4" /></span>
+      </button>
+    </PaginaKop>
 
-      <div v-if="isToevoegen" class="rounded-2xl bg-stuurhut-card p-5 text-stuurhut-ink">
+    <div class="stuurhut-kolom flex flex-col gap-5 mt-8">
+      <div v-if="isToevoegen" class="sh-kaart">
         <form class="flex flex-col gap-3" @submit.prevent="afspraakToevoegen">
           <UInput v-model="nieuwTitel" placeholder="Titel" autofocus />
           <div class="flex flex-wrap gap-2">
@@ -221,7 +219,7 @@ async function afspraakToevoegen() {
       </template>
 
       <template v-else>
-        <div class="flex items-center justify-between">
+        <div class="sh-kaart !py-2 flex items-center justify-between">
           <UButton icon="i-lucide-chevron-left" size="sm" color="neutral" variant="ghost" @click="maandVorige" />
           <span class="font-semibold capitalize">{{ maandLabel }}</span>
           <UButton icon="i-lucide-chevron-right" size="sm" color="neutral" variant="ghost" @click="maandVolgende" />
@@ -242,9 +240,9 @@ async function afspraakToevoegen() {
         </div>
       </template>
 
-      <div class="flex flex-wrap gap-4">
+      <div class="sh-glas w-fit px-4 py-2.5 flex flex-wrap gap-4">
         <span v-for="l in legenda" :key="l.label" class="flex items-center gap-1.5 text-xs text-stuurhut-muted">
-          <span class="size-2 rounded-sm" :class="l.klasse" />{{ l.label }}
+          <span class="size-2 rounded-sm" :style="{ backgroundColor: l.kleur }" />{{ l.label }}
         </span>
       </div>
     </div>
@@ -252,27 +250,13 @@ async function afspraakToevoegen() {
 </template>
 
 <style scoped>
-.agenda__modus {
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.02em;
-  padding: 0.45rem 0.9rem;
-  border-radius: 9999px;
-  color: var(--color-stuurhut-muted);
-}
-
-.agenda__modus--actief {
-  background-color: var(--color-stuurhut-accent);
-  color: oklch(20% 0.05 48);
-}
-
 .agenda__dagpil {
   font-size: 0.8125rem;
   font-weight: 600;
   padding: 0.4rem 0.85rem;
   border-radius: 9999px;
-  background-color: var(--color-stuurhut-card);
+  background: var(--color-stuurhut-glas);
+  backdrop-filter: blur(12px);
   color: var(--color-stuurhut-ink);
 }
 
@@ -285,10 +269,11 @@ async function afspraakToevoegen() {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0.375rem;
-  background-color: var(--color-stuurhut-card);
+  background: var(--color-stuurhut-glas);
+  backdrop-filter: blur(12px);
   border-radius: 1.25rem;
   padding: 1rem;
-  box-shadow: 0 10px 26px rgb(60 38 16 / 0.1);
+  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
 }
 
 .agenda__maand-wd {

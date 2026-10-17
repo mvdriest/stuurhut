@@ -1,11 +1,9 @@
 import { z } from 'zod'
 
-const tijdRegex = /^([01]\d|2[0-3]):[0-5]\d$/
-
 const bodySchema = z.object({
-  datum: z.string().optional(),
+  datum: z.string().regex(DATUM_REGEX).optional(),
   blokType: z.enum(['prive', 'zakelijk']).optional(),
-  startTijd: z.string().regex(tijdRegex).nullable().optional(),
+  startTijd: z.string().regex(TIJD_REGEX).nullable().optional(),
   geschatteDuur: z.number().int().positive().optional(),
   status: z.enum(['gepland', 'bevestigd', 'klaar']).optional(),
   volgorde: z.number().int().optional()
@@ -13,7 +11,7 @@ const bodySchema = z.object({
 
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await requireSupabaseUser(event)
-  const id = getRouterParam(event, 'id')
+  const id = requireRouterParam(event, 'id')
   const wijziging = await readValidatedBody(event, bodySchema.parse)
 
   const { data: bestaand } = await supabase

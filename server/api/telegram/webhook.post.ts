@@ -1,4 +1,7 @@
+import { timingSafeEqual } from 'node:crypto'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { serverSupabaseServiceRole } from '#supabase/server'
+import type { Database } from '../../../app/types/database.types'
 
 interface TelegramUpdate {
   message?: {
@@ -11,6 +14,13 @@ interface TelegramUpdate {
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
+
+  // Telegram stuurt het bij setWebhook opgegeven secret_token mee in deze header.
+  // Zonder geldige header is het verzoek niet van Telegram: weigeren, ook in setup-modus.
+  if (!isGeldigSecret(getHeader(event, 'x-telegram-bot-api-secret-token'), config.telegramWebhookSecret)) {
+    throw createError({ statusCode: 401, statusMessage: 'Ongeldig webhook-secret.' })
+  }
+
   const body = await readBody<TelegramUpdate>(event)
   const message = body.message
 
@@ -79,8 +89,15 @@ export default defineEventHandler(async (event) => {
   }
 })
 
+function isGeldigSecret(ontvangen: string | undefined, verwacht: string) {
+  if (!verwacht || !ontvangen) return false
+  const a = Buffer.from(ontvangen)
+  const b = Buffer.from(verwacht)
+  return a.length === b.length && timingSafeEqual(a, b)
+}
+
 async function verwerkClassificatie(
-  supabase: ReturnType<typeof serverSupabaseServiceRole>,
+  supabase: SupabaseClient<Database>,
   appUserId: string,
   classificatie: Awaited<ReturnType<typeof classifyTelegramBericht>>,
   trajecten: { id: string, naam: string }[]
@@ -96,7 +113,10 @@ async function verwerkClassificatie(
       if (!taak) throw new Error('Classificatie "nieuwe_taak" zonder nieuweTaak-data.')
 
       const trajectId = taak.trajectId && trajecten.some(t => t.id === taak.trajectId) ? taak.trajectId : null
-      const geschatteDuur = taak.geschatteDuur ?? 30
+      const geschatteDuur = taak.geschatteDuur && taak.geschatteDuur > 0 ? taak.geschatteDuur : 30
+      // De AI-output is niet gegarandeerd goed geformatteerd; ongeldig = niet inplannen.
+      const geplandOp = taak.geplandOp && DATUM_REGEX.test(taak.geplandOp) ? taak.geplandOp : null
+      const tijd = taak.tijd && TIJD_REGEX.test(taak.tijd) ? taak.tijd : null
 
       const { data: subtaak, error: subtaakError } = await supabase
         .from('subtaken')
@@ -112,13 +132,13 @@ async function verwerkClassificatie(
 
       if (subtaakError || !subtaak) throw new Error(subtaakError?.message ?? 'Kon subtaak niet aanmaken.')
 
-      if (taak.geplandOp) {
+      if (geplandOp) {
         const { error: planError } = await supabase.from('geplande_taken').insert({
           user_id: appUserId,
           subtaak_id: subtaak.id,
-          datum: taak.geplandOp,
+          datum: geplandOp,
           blok_type: taak.categorie,
-          start_tijd: taak.tijd,
+          start_tijd: tijd,
           geschatte_duur: geschatteDuur,
           status: 'gepland'
         })
@@ -127,7 +147,7 @@ async function verwerkClassificatie(
 
       const trajectNaam = trajecten.find(t => t.id === trajectId)?.naam
       const locatie = trajectNaam ? ` (${trajectNaam})` : ''
-      const planning = taak.geplandOp ? ` — ingepland op ${taak.geplandOp}${taak.tijd ? ` om ${taak.tijd}` : ''}` : ''
+      const planning = geplandOp ? ` — ingepland op ${geplandOp}${tijd ? ` om ${tijd}` : ''}` : ''
       bevestiging = `Taak toegevoegd${locatie}: "${taak.tekst}"${planning}`
       journalTrajectId = trajectId
       resultaatLabel = `Taak aangemaakt${locatie}: "${taak.tekst}"`

@@ -15,7 +15,7 @@ export function useIdeeen() {
   async function refresh() {
     pending.value = true
     try {
-      ideeen.value = await useRequestFetch()('/api/ideeen')
+      ideeen.value = await useRequestFetch()<Idee[]>('/api/ideeen')
       return ideeen.value
     } finally {
       pending.value = false

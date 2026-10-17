@@ -1,4 +1,5 @@
 import type { TrajectKleur } from '~/utils/kleuren'
+import type { Dienst } from '~/utils/route'
 
 export interface Traject {
   id: string
@@ -20,6 +21,7 @@ export interface Traject {
   contactTelefoon: string | null
   contactEmail: string | null
   contactVoorkeur: string | null
+  diensten: Dienst[]
 }
 
 export function useTrajecten() {
@@ -29,7 +31,7 @@ export function useTrajecten() {
   async function refresh() {
     pending.value = true
     try {
-      trajecten.value = await useRequestFetch()('/api/trajecten')
+      trajecten.value = await useRequestFetch()<Traject[]>('/api/trajecten')
       return trajecten.value
     } finally {
       pending.value = false

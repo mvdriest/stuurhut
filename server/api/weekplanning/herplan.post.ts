@@ -55,19 +55,23 @@ export default defineEventHandler(async (event) => {
   })
 
   const geldigeIds = new Set(verplaatsbaar.map(t => t.id))
+  const geldigeDatums = new Set(periode)
 
   for (const wijziging of resultaat.wijzigingen) {
     if (!geldigeIds.has(wijziging.id)) continue
+    if (!geldigeDatums.has(wijziging.datum) || !['prive', 'zakelijk'].includes(wijziging.blokType)) continue
+    const startTijd = wijziging.startTijd && TIJD_REGEX.test(wijziging.startTijd) ? wijziging.startTijd : null
 
-    await supabase
+    const { error } = await supabase
       .from('geplande_taken')
       .update({
         datum: wijziging.datum,
         blok_type: wijziging.blokType,
-        start_tijd: wijziging.startTijd,
+        start_tijd: startTijd,
         updated_at: new Date().toISOString()
       })
       .eq('id', wijziging.id)
+    if (error) throw createError({ statusCode: 500, statusMessage: error.message })
   }
 
   const taken = await haalGeplandeTaken(supabase, periodeStart, periodeEind)

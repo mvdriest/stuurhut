@@ -65,6 +65,8 @@ export interface WeekplanningItem {
   startTijd: string | null
   geschatteDuur: number
   subtaakIndex: number | null
+  // Bestaande openstaande subtaak; null/afwezig voor nieuw gesplitste subtaken (dan subtaakIndex).
+  subtaakId?: string | null
   vrijeTekst: string | null
 }
 
@@ -114,7 +116,7 @@ export async function genereerWeekplanning(input: {
   openstaandeSubtaken: OpenSubtaakInput[]
   vasteTaken: VasteTaakInput[]
   correcties: CorrectieInput[]
-}): Promise<WeekplanningResult & { planning: (WeekplanningItem & { subtaakId: string | null })[] }> {
+}): Promise<WeekplanningResult> {
   const ai = getClient()
 
   const prompt = `Je bent een persoonlijke planningsassistent. Plan de week van deze zelfstandig ondernemer in op basis van onderstaande gegevens.

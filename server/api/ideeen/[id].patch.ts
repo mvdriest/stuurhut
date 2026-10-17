@@ -8,7 +8,7 @@ const bodySchema = z.object({
 
 export default defineEventHandler(async (event) => {
   const { supabase } = await requireSupabaseUser(event)
-  const id = getRouterParam(event, 'id')
+  const id = requireRouterParam(event, 'id')
   const updates = await readValidatedBody(event, bodySchema.parse)
 
   const { data, error } = await supabase

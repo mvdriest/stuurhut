@@ -7,7 +7,7 @@ const bodySchema = z.union([
 
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await requireSupabaseUser(event)
-  const id = getRouterParam(event, 'id')
+  const id = requireRouterParam(event, 'id')
   const body = await readValidatedBody(event, bodySchema.parse)
 
   const { data: item } = await supabase.from('inbox_items').select('id, tekst').eq('id', id).single()
@@ -23,12 +23,13 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: `Je hebt al ${MAX_PER_DAG} prioriteiten voor vandaag.` })
     }
 
-    await supabase.from('vandaag_prioriteiten').insert({
+    const { error: insertError } = await supabase.from('vandaag_prioriteiten').insert({
       user_id: user.id,
       tekst: item.tekst,
       datum,
       volgorde: aantal
     })
+    if (insertError) throw createError({ statusCode: 500, statusMessage: insertError.message })
   } else {
     const { data: traject } = await supabase
       .from('trajecten')
@@ -42,7 +43,9 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  await supabase.from('inbox_items').delete().eq('id', id)
+  // Pas verwijderen als het verplaatsen gelukt is, anders ben je het item kwijt.
+  const { error: deleteError } = await supabase.from('inbox_items').delete().eq('id', id)
+  if (deleteError) throw createError({ statusCode: 500, statusMessage: deleteError.message })
 
   return { success: true }
 })

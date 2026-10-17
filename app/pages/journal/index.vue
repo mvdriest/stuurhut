@@ -11,7 +11,13 @@ const trajectFilter = ref<string | null>(typeof route.query.traject === 'string'
 const query = ref('')
 
 const nieuweInhoud = ref('')
+const nieuwTrajectId = ref<string | null>(trajectFilter.value)
 const opslaan = ref(false)
+
+const trajectOpties = computed(() => [
+  { label: 'Geen traject', value: null },
+  ...trajecten.value.map(t => ({ label: t.naam, value: t.id }))
+])
 
 async function toevoegen() {
   if (!nieuweInhoud.value.trim()) return
@@ -19,7 +25,7 @@ async function toevoegen() {
   try {
     await $fetch('/api/journal', {
       method: 'POST',
-      body: { inhoud: nieuweInhoud.value.trim() }
+      body: { inhoud: nieuweInhoud.value.trim(), trajectId: nieuwTrajectId.value }
     })
     nieuweInhoud.value = ''
     await refresh()
@@ -86,20 +92,25 @@ const weekGroepen = computed(() => {
 </script>
 
 <template>
-  <div class="bg-stuurhut-mist min-h-screen">
-    <AppHeaderFoto compact titel="Journal" subtitel="Alles wat je onderweg hebt vastgelegd, en precies waar het is geland." />
+  <div>
+    <PaginaKop titel="Journal" subtitel="Alles wat je onderweg hebt vastgelegd, en precies waar het is geland.">
+      <template #balk-rechts>
+        <label class="sh-chip !h-11 w-[min(22rem,60vw)]">
+          <UIcon name="i-lucide-search" class="size-4 shrink-0 text-stuurhut-muted" />
+          <input v-model="query" type="search" placeholder="Zoek op tekst of traject…" class="flex-1 min-w-0 bg-transparent outline-none text-sm">
+        </label>
+      </template>
+    </PaginaKop>
 
-    <div class="stuurhut-kolom flex flex-col gap-6 py-[clamp(2rem,5vw,4rem)]">
-      <UCard>
-        <form class="flex flex-col gap-2" @submit.prevent="toevoegen">
-          <UTextarea v-model="nieuweInhoud" placeholder="Schrijf een entry..." :rows="4" autofocus />
-          <div class="flex justify-end">
-            <UButton type="submit" icon="i-lucide-plus" :loading="opslaan">Vastleggen</UButton>
-          </div>
-        </form>
-      </UCard>
-
-      <UInput v-model="query" icon="i-lucide-search" placeholder="Zoek op tekst, traject of bestemming…" size="lg" class="w-full" />
+    <div class="stuurhut-kolom max-w-4xl flex flex-col gap-6 mt-8">
+      <form class="sh-kaart flex flex-col gap-3" @submit.prevent="toevoegen">
+        <h2 class="sh-kop"><UIcon name="i-lucide-pen-line" class="size-5" /> Iets vastleggen</h2>
+        <UTextarea v-model="nieuweInhoud" placeholder="Wat gebeurde er, wat dacht je, wat wil je onthouden?" :rows="4" autofocus />
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <USelect v-model="nieuwTrajectId" :items="trajectOpties" value-key="value" class="w-56" />
+          <UButton type="submit" icon="i-lucide-plus" :loading="opslaan">Vastleggen</UButton>
+        </div>
+      </form>
 
       <div v-if="trajectFilterNaam" class="flex items-center gap-2">
         <span class="text-xs text-stuurhut-muted">Gefilterd op:</span>
@@ -107,18 +118,15 @@ const weekGroepen = computed(() => {
         <button type="button" class="text-xs font-bold text-stuurhut-muted" @click="trajectFilter = null">verwijderen</button>
       </div>
 
-      <p v-if="!pending && entries.length === 0" class="text-muted text-sm">
+      <p v-if="!pending && entries.length === 0" class="sh-kaart text-sm">
         Nog geen entries vastgelegd.
       </p>
-      <p v-else-if="!pending && gefilterd.length === 0" class="text-muted text-sm">
+      <p v-else-if="!pending && gefilterd.length === 0" class="sh-kaart text-sm">
         Niets gevonden voor deze zoekopdracht.
       </p>
 
       <div v-for="week in weekGroepen" :key="week.label" class="flex flex-col gap-3">
-        <div class="flex items-center gap-2.5">
-          <span class="text-xs font-bold uppercase tracking-wider text-stuurhut-muted whitespace-nowrap">{{ week.label }}</span>
-          <span class="flex-1 h-px bg-black/10" />
-        </div>
+        <p class="sh-kicker w-fit px-3 py-1.5 rounded-full bg-[var(--color-stuurhut-glas)]">{{ week.label }}</p>
 
         <div v-for="entry in week.entries" :key="entry.id" class="journalkaart">
           <div class="flex items-center gap-2.5 flex-wrap">
@@ -146,14 +154,15 @@ const weekGroepen = computed(() => {
 
 <style scoped>
 .journalkaart {
-  background-color: var(--color-stuurhut-card);
+  background: var(--color-stuurhut-glas);
+  backdrop-filter: blur(12px);
   color: var(--color-stuurhut-ink);
   border-radius: 1rem;
   padding: 1rem 1.125rem;
   display: flex;
   flex-direction: column;
   gap: 0.625rem;
-  box-shadow: 0 10px 26px rgb(60 38 16 / 0.1);
+  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
 }
 
 .journalkaart__label {
