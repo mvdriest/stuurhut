@@ -6,7 +6,9 @@ import { DIENSTEN, DIENST_INFO } from '~/utils/route'
 // Het korte "nieuw traject"-formulier: alleen wat nodig is om de reis te beginnen.
 // Bovenin kun je het traject in één zin beschrijven; de AI vult dan de velden in
 // (en wat het verder herkent, zoals contact of bedrag, als losse "extra's").
-// De rest vul je daarna aan in het dossier.
+// De rest vul je daarna aan in het dossier. Een zakelijk traject komt bij de klant met
+// dezelfde naam (de server zoekt die op of maakt hem aan); herkende contactgegevens
+// worden het contact van die klant.
 
 interface Extras {
   contactpersoon: string | null
@@ -22,7 +24,13 @@ type Concept = Extras & { naam: string | null, scope: 'zakelijk' | 'prive' | nul
 const props = defineProps<{ startZin?: string }>()
 
 const emit = defineEmits<{
-  submit: [payload: Partial<Extras> & { naam: string, scope: 'zakelijk' | 'prive', diensten: Dienst[], kleur: TrajectKleur }]
+  submit: [payload: Partial<Omit<Extras, 'contactpersoon' | 'contactTelefoon' | 'contactEmail'>> & {
+    naam: string
+    scope: 'zakelijk' | 'prive'
+    diensten: Dienst[]
+    kleur: TrajectKleur
+    contact?: { naam?: string, telefoon?: string, email?: string }
+  }]
   cancel: []
 }>()
 
@@ -109,8 +117,13 @@ function verwijderExtra(key: keyof Extras) {
 
 function onSubmit() {
   if (!naam.value.trim()) return
+  const { contactpersoon, contactTelefoon, contactEmail, ...rest } = extras.value
+  const heeftContact = contactpersoon || contactTelefoon || contactEmail
   emit('submit', {
-    ...extras.value,
+    ...rest,
+    contact: heeftContact
+      ? { naam: contactpersoon ?? undefined, telefoon: contactTelefoon ?? undefined, email: contactEmail ?? undefined }
+      : undefined,
     naam: naam.value.trim(),
     scope: scope.value,
     diensten: scope.value === 'zakelijk' ? diensten.value : [],

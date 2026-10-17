@@ -14,16 +14,19 @@ const bodySchema = z.object({
   bedragAfgesproken: z.number().nullable().optional(),
   bedragGefactureerd: z.number().nullable().optional(),
   financieelNotitie: z.string().optional(),
-  contactpersoon: z.string().optional(),
-  contactTelefoon: z.string().optional(),
-  contactEmail: z.string().optional(),
-  contactVoorkeur: z.string().optional(),
   diensten: z.array(z.enum(DIENSTEN)).default([])
-})
+}).merge(koppelingSchema)
 
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await requireSupabaseUser(event)
   const body = await readValidatedBody(event, bodySchema.parse)
+
+  // Een zakelijk traject zonder gekozen klant krijgt de klant met dezelfde naam
+  // (bestaand of nieuw): zo hangt een tweede traject voor dezelfde klant er vanzelf aan.
+  const { klantId, contactId } = await koppelKlantEnContact(supabase, user.id, {
+    ...body,
+    klantNaam: body.klantNaam ?? (body.scope === 'zakelijk' && body.klantId === undefined ? body.naam : undefined)
+  })
 
   const { data, error } = await supabase
     .from('trajecten')
@@ -40,10 +43,8 @@ export default defineEventHandler(async (event) => {
       bedrag_afgesproken: body.bedragAfgesproken,
       bedrag_gefactureerd: body.bedragGefactureerd,
       financieel_notitie: body.financieelNotitie,
-      contactpersoon: body.contactpersoon,
-      contact_telefoon: body.contactTelefoon,
-      contact_email: body.contactEmail,
-      contact_voorkeur: body.contactVoorkeur,
+      klant_id: klantId ?? null,
+      contact_id: contactId ?? null,
       diensten: body.diensten
     })
     .select(TRAJECTEN_SELECT)

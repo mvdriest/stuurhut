@@ -30,6 +30,9 @@ today:
 - **Kaartstijl + klantreis (CRM)**: every page now shares the look of the map page
   (landscape background, glass cards, hamburger menu), and each zakelijk traject has a
   *route* of haltes derived from the services it buys. See "Klantreis" below.
+- **Klanten & contacten (CRM fase 1)**: clients and their contact people as their own
+  tables, linked from trajecten. Groundwork for the mail/calendar integrations in
+  `docs/voorstel-crm-koppelingen.md`. See "Klanten & contacten" below.
 - **Supabase migration**: the backend was moved from Drizzle ORM over local/Turso SQLite +
   `nuxt-auth-utils` sessions to Supabase (Postgres + Supabase Auth), keeping every feature
   above unchanged. See "Database" and "Single-user auth model" below — those sections
@@ -97,7 +100,7 @@ non-obvious things it exists to paper over — worth knowing before touching aut
   imported explicitly from `#supabase/server`.
 
 **Database**: Supabase Postgres, project `Stuurhut` (`rykjfdwxptfvrvbeltpg`, `eu-west-3`).
-12 tables in `public`, all with `uuid` primary keys (`gen_random_uuid()` default) and a
+14 tables in `public`, all with `uuid` primary keys (`gen_random_uuid()` default) and a
 `user_id uuid references auth.users(id)` — there is no app-level `users` table, auth is
 entirely Supabase Auth's `auth.users`. Core tables: `trajecten` (has a `kleur` column — a
 fixed palette enum, see `TRAJECT_KLEUREN` in `app/utils/kleuren.ts` — not free-form hex, to
@@ -106,7 +109,8 @@ beloningen" below), `vandaag_prioriteiten`, `inbox_items`. AI-weekplanning table
 `dag_blokken`, `subtaken`, `geplande_taken`, `tijdschatting_correcties`. Fase 1.5 tables:
 `ideeen`, `focus_sessies`. Fase 3 tables: `doelen`, `doel_mijlpalen`. Journal table:
 `journal_entries`. Klantreis: `traject_haltes`, plus `trajecten.diensten text[]` and a
-nullable `subtaken.halte_id`. Every table has RLS enabled with one `for all using (auth.uid() =
+nullable `subtaken.halte_id`. CRM: `klanten`, `contacten`, plus nullable `trajecten.klant_id`
+/ `trajecten.contact_id`. Every table has RLS enabled with one `for all using (auth.uid() =
 user_id) with check (auth.uid() = user_id)` policy — this is the actual authorization
 boundary (see "API routes" below). **Row-level security alone is not enough**: a table
 also needs plain Postgres `GRANT`s (`select, insert, update, delete`) to the
@@ -268,8 +272,25 @@ haltes, past afspraken) — nothing is stored for it. Components in `components/
 auto-registered with a `Reis` prefix (`<ReisHalteKaart>`, `<ReisRouteBewerken>`); an
 unprefixed name silently renders nothing.
 
+**Klanten & contacten**: `klanten` (naam, `domeinen text[]`, website, adres, kvk, btw,
+notities) + `contacten` (naam, email, telefoon, rol, voorkeur, nullable `klant_id`, cascade
+on klant delete) + `server/api/klanten/**`, `server/api/contacten/**`, `useKlanten.ts`
+(`GET /api/klanten` returns klanten with `contacten` nested plus `losseContacten`; use
+`klantVan()`/`contactVan()` to resolve a traject's `klantId`/`contactId`), and the pages
+`/klanten` and `/klanten/[id]`. A traject has one klant and one *reisgenoot*
+(`contact_id`, the main contact). Traject POST/PATCH accept `koppelingSchema` from
+`server/utils/klanten.ts` (`klantId` | `klantNaam` find-or-create, `contact: { id? , naam,
+email, … } | null`), resolved by `koppelKlantEnContact()`: an existing email is reused rather
+than duplicated, and a new zakelijk traject without a chosen klant gets the klant with the
+same name (case-insensitive). `leerDomein()` adds a contact's business email domain to
+`klanten.domeinen` (free-mail providers like gmail.com are skipped) — the future mail
+integration matches on those domains. The old `trajecten.contactpersoon`/`contact_email`/
+`contact_telefoon`/`contact_voorkeur` columns were migrated into these tables and are no
+longer read or written; they only remain so the deployed pre-CRM build keeps working until
+this lands, and can then be dropped.
+
 **Snel invoeren**: `TrajectNieuw.vue` (in the global `TrajectNieuwModal.vue`) only asks
-naam/scope/diensten; a free sentence can be parsed by `POST /api/trajecten/uit-zin`
+naam/scope/diensten (contact details the AI recognizes are sent as `contact`); a free sentence can be parsed by `POST /api/trajecten/uit-zin`
 (`leesTrajectUitZin()` in `server/utils/ai.ts`, nothing is stored, output validated per
 field). Everything else is filled in inline on the dossier. `SnelMenu.vue` (⌘K, mounted in
 `app.vue`, state in `useSnelMenu.ts`) turns the typed text into a taak/inbox/idee/journal

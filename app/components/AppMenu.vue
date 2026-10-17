@@ -14,6 +14,7 @@ const items = [
   { label: 'Vandaag', to: '/vandaag' },
   { label: 'Agenda', to: '/agenda' },
   { label: 'Trajecten', to: '/trajecten' },
+  { label: 'Klanten', to: '/klanten' },
   { label: 'Journal', to: '/journal' },
   { label: 'Ideeën', to: '/ideeen' }
 ]

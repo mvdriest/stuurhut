@@ -1,6 +1,7 @@
 # Stuurhut — Voorstel: CRM met mail- en agendakoppeling
 
-Status: voorstel ter bespreking, niets hieruit is gebouwd.
+Status: fase 1 (klanten en contacten) is gebouwd; de rest is voorstel. Zie §8 voor de
+keuzes die inmiddels gemaakt zijn.
 Uitgangspunt: zo min mogelijk handwerk. Wat je al doet (mailen vanuit
 info@bataviadigital.nl, afspraken in Apple Agenda) komt vanzelf in Stuurhut terecht,
 in plaats van dat je het daar nog een keer intypt.
@@ -222,3 +223,23 @@ Mail en agenda koppelen alleen goed als Stuurhut weet *wie* bij welke klant hoor
 4. **Mail versturen vanuit Stuurhut**, of alleen lezen en blijven mailen vanuit Apple Mail?
 5. **Opvolgtermijn**: na hoeveel werkdagen zonder antwoord wil je een herinnering?
 6. Gebruik je een **boekhoudpakket** (Moneybird, e-Boekhouden, …) dat later mee kan?
+
+---
+
+## 8. Besluiten (17 okt 2026)
+
+- **Fase 1 gebouwd**, iets eenvoudiger dan §4.1: in plaats van een tabel
+  `traject_contacten` heeft een traject één klant (`klant_id`) en één hoofdcontact
+  (`contact_id`, de "reisgenoot"). Alle contacten van de klant staan op de klantpagina.
+  Een koppeltabel kan later nog als één traject echt meerdere vaste contacten nodig heeft.
+- **Agenda**: in Apple Agenda staan iCloud-agenda's (Agenda, Privé, Werk, RISE) én
+  Google-agenda's (gmail, autoatlas.nl). Stuurhut leest daarom per bron: iCloud via
+  CalDAV, Google via de Google Calendar API. Schrijven (A3) is niet nodig; Stuurhut stelt
+  hooguit een afspraak voor, die je zelf in Apple Agenda zet of via de ICS-feed (A1) ziet.
+- **Mail**: niet versturen vanuit Stuurhut; wel een *conceptmail* voorstellen
+  (kopiëren of openen in je mailprogramma via een `mailto:`-link met onderwerp en tekst).
+- **Herinneringen**: geen vaste termijn; Stuurhut bepaalt zelf wanneer opvolgen
+  relevant is (bijv. offerte verstuurd en geen antwoord, belofte in een mail met een
+  datum, lang geen contact tijdens een lopende halte).
+- **Boekhouding**: e-Boekhouden (heeft een API). Bedoeld om `bedrag_gefactureerd` en
+  "factuur openstaand/betaald" automatisch bij te houden in plaats van met de hand.

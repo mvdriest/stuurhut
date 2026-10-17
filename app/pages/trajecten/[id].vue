@@ -21,12 +21,15 @@ const { refresh: refreshJournal } = useJournal()
 const { refresh: refreshAfspraken } = useAfspraken()
 const { refresh: refreshHaltes, routeVan } = useHaltes()
 const { bestanden, refresh: refreshBestanden } = useTrajectBestanden(trajectId.value)
+const { klanten, klantVan, contactVan, refresh: refreshKlanten } = useKlanten()
 
 await useAsyncData(`dossier-${trajectId.value}`, () => Promise.all([
-  refreshTrajecten(), refreshTaken(), refreshJournal(), refreshAfspraken(), refreshHaltes(), refreshBestanden()
+  refreshTrajecten(), refreshTaken(), refreshJournal(), refreshAfspraken(), refreshHaltes(), refreshBestanden(), refreshKlanten()
 ]))
 
 const traject = computed(() => trajecten.value.find(t => t.id === trajectId.value))
+const klant = computed(() => klantVan(traject.value?.klantId))
+const contact = computed(() => contactVan(traject.value?.contactId))
 const reis = computed(() => routeVan(trajectId.value))
 const takenVanTraject = computed(() => taken.value.filter(t => t.trajectId === trajectId.value))
 
@@ -65,11 +68,11 @@ const onderwegSinds = computed(() => traject.value
   : '')
 const hartslag = computed(() => traject.value ? staleness(traject.value.updatedAt) : null)
 
-const initialen = computed(() => (traject.value?.contactpersoon ?? '')
+const initialen = computed(() => (contact.value?.naam ?? '')
   .split(/\s+/).filter(w => w && w[0] === w[0]?.toUpperCase()).map(w => w[0]).slice(0, 2).join('') || '?')
 
 const voorkeur = computed<'bel' | 'mail' | null>(() => {
-  const v = traject.value?.contactVoorkeur?.toLowerCase() ?? ''
+  const v = contact.value?.voorkeur?.toLowerCase() ?? ''
   if (/bel|telefo/.test(v)) return 'bel'
   if (/mail/.test(v)) return 'mail'
   return null
@@ -95,7 +98,7 @@ const routeOpen = ref(false)
 async function opslaan(payload: Record<string, unknown>) {
   await $fetch(`/api/trajecten/${trajectId.value}`, { method: 'PATCH', body: payload })
   bewerkenOpen.value = false
-  await routeGewijzigd()
+  await Promise.all([routeGewijzigd(), refreshKlanten()])
 }
 
 // Inline bewerken van één blok tegelijk (contact, reiskas, volgende stap), zodat je
@@ -103,7 +106,8 @@ async function opslaan(payload: Record<string, unknown>) {
 type Blok = 'contact' | 'kas' | 'stap' | 'wacht'
 const bewerkBlok = ref<Blok | null>(null)
 const concept = reactive({
-  contactpersoon: '', contactTelefoon: '', contactEmail: '', contactVoorkeur: '',
+  klantId: null as string | null, klantNaam: '', contactKeuze: 'nieuw' as string,
+  contactNaam: '', contactTelefoon: '', contactEmail: '', contactVoorkeur: '',
   bedragAfgesproken: null as number | null, bedragGefactureerd: null as number | null, financieelNotitie: '',
   eerstvolgendeActie: '',
   wachtOp: ''
@@ -113,17 +117,61 @@ function startBewerken(blok: Blok) {
   const t = traject.value
   if (!t) return
   Object.assign(concept, {
-    contactpersoon: t.contactpersoon ?? '',
-    contactTelefoon: t.contactTelefoon ?? '',
-    contactEmail: t.contactEmail ?? '',
-    contactVoorkeur: t.contactVoorkeur ?? '',
+    klantId: t.klantId,
+    klantNaam: '',
     bedragAfgesproken: t.bedragAfgesproken,
     bedragGefactureerd: t.bedragGefactureerd,
     financieelNotitie: t.financieelNotitie ?? '',
     eerstvolgendeActie: t.eerstvolgendeActie ?? '',
     wachtOp: t.wachtOp ?? ''
   })
+  kiesContact(contact.value?.id ?? 'nieuw')
   bewerkBlok.value = blok
+}
+
+// --- Klant en reisgenoot kiezen ----------------------------------------------------------
+
+// Een nieuwe klantnaam typen kan ook: die wordt bij opslaan aangemaakt.
+const klantItems = computed(() => [
+  ...klanten.value.map(k => ({ label: k.naam, value: k.id })),
+  ...(concept.klantNaam ? [{ label: `${concept.klantNaam} (nieuw)`, value: `nieuw:${concept.klantNaam}` }] : [])
+])
+const klantKeuze = computed({
+  get: () => concept.klantNaam ? `nieuw:${concept.klantNaam}` : concept.klantId ?? undefined,
+  set: (v: string | undefined) => {
+    if (v?.startsWith('nieuw:')) {
+      concept.klantNaam = v.slice(6)
+      concept.klantId = null
+    } else {
+      concept.klantNaam = ''
+      concept.klantId = v ?? null
+    }
+    // Contacten van een andere klant passen niet: begin dan met een nieuw contact.
+    const huidige = contactVan(concept.contactKeuze)
+    if (huidige && huidige.klantId !== concept.klantId) kiesContact('nieuw')
+  }
+})
+function nieuweKlant(naam: string) {
+  klantKeuze.value = `nieuw:${naam.trim()}`
+}
+
+const contactOpties = computed(() => [
+  ...(klantVan(concept.klantId)?.contacten ?? []).map(c => ({ label: c.naam, value: c.id })),
+  ...(contact.value && contact.value.klantId !== concept.klantId && !concept.klantNaam
+    ? [{ label: contact.value.naam, value: contact.value.id }]
+    : []),
+  { label: 'Nieuw contact…', value: 'nieuw' }
+])
+
+function kiesContact(id: string) {
+  const c = contactVan(id)
+  Object.assign(concept, {
+    contactKeuze: c ? c.id : 'nieuw',
+    contactNaam: c?.naam ?? '',
+    contactTelefoon: c?.telefoon ?? '',
+    contactEmail: c?.email ?? '',
+    contactVoorkeur: c?.voorkeur ?? ''
+  })
 }
 
 // Een leeg number-input geeft '' terug; de API verwacht dan null.
@@ -132,10 +180,16 @@ const bedrag = (n: number | string | null) => (n === '' || n === null ? null : N
 async function blokOpslaan() {
   const velden: Record<Blok, Record<string, unknown>> = {
     contact: {
-      contactpersoon: concept.contactpersoon.trim(),
-      contactTelefoon: concept.contactTelefoon.trim(),
-      contactEmail: concept.contactEmail.trim(),
-      contactVoorkeur: concept.contactVoorkeur.trim()
+      ...(concept.klantNaam ? { klantNaam: concept.klantNaam } : { klantId: concept.klantId }),
+      contact: concept.contactKeuze === 'nieuw' && !concept.contactNaam.trim() && !concept.contactEmail.trim() && !concept.contactTelefoon.trim()
+        ? null
+        : {
+            id: concept.contactKeuze === 'nieuw' ? undefined : concept.contactKeuze,
+            naam: concept.contactNaam.trim(),
+            telefoon: concept.contactTelefoon.trim(),
+            email: concept.contactEmail.trim(),
+            voorkeur: concept.contactVoorkeur.trim()
+          }
     },
     kas: {
       bedragAfgesproken: bedrag(concept.bedragAfgesproken),
@@ -150,7 +204,7 @@ async function blokOpslaan() {
   if (!blok) return
   bewerkBlok.value = null
   await $fetch(`/api/trajecten/${trajectId.value}`, { method: 'PATCH', body: velden[blok] })
-  await refreshTrajecten()
+  await Promise.all([refreshTrajecten(), blok === 'contact' ? refreshKlanten() : null])
 }
 
 // --- Status ---------------------------------------------------------------------------
@@ -208,7 +262,7 @@ const meerOpties = computed(() => [[
   { label: 'Traject verwijderen', icon: 'i-lucide-trash-2', color: 'error' as const, onSelect: () => { verwijderOpen.value = true } }
 ]])
 
-const heeftContact = computed(() => !!(traject.value?.contactpersoon || traject.value?.contactEmail || traject.value?.contactTelefoon))
+const heeftContact = computed(() => !!(klant.value || contact.value))
 
 // Nog geen route: diensten kiezen en uitstippelen.
 const startDiensten = ref<Dienst[]>([])
@@ -330,7 +384,24 @@ function formProps(t: Traject) {
         <!-- Reisgenoot -->
         <form v-if="bewerkBlok === 'contact'" class="sh-kaart flex flex-col gap-2" @submit.prevent="blokOpslaan" @keydown.esc="bewerkBlok = null">
           <h2 class="sh-kop mb-1"><UIcon name="i-lucide-user-round" class="size-5" /> Reisgenoot</h2>
-          <UInput v-model="concept.contactpersoon" placeholder="Naam" autofocus />
+          <USelectMenu
+            v-model="klantKeuze"
+            :items="klantItems"
+            value-key="value"
+            create-item
+            placeholder="Klant kiezen of nieuwe typen"
+            icon="i-lucide-building-2"
+            @create="nieuweKlant"
+          />
+          <USelect
+            v-if="contactOpties.length > 1"
+            :model-value="concept.contactKeuze"
+            :items="contactOpties"
+            value-key="value"
+            icon="i-lucide-user-round"
+            @update:model-value="kiesContact($event as string)"
+          />
+          <UInput v-model="concept.contactNaam" placeholder="Naam contactpersoon" />
           <UInput v-model="concept.contactTelefoon" type="tel" placeholder="Telefoon" />
           <UInput v-model="concept.contactEmail" type="email" placeholder="E-mail" />
           <UInput v-model="concept.contactVoorkeur" placeholder="Voorkeur, bijv. belt liefst" />
@@ -344,18 +415,24 @@ function formProps(t: Traject) {
             <h2 class="sh-kop"><UIcon name="i-lucide-user-round" class="size-5" /> Reisgenoot</h2>
             <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" aria-label="Contact bewerken" @click="startBewerken('contact')" />
           </div>
-          <div class="flex items-center gap-3 mt-3">
+          <NuxtLink v-if="klant" :to="`/klanten/${klant.id}`" class="dossier__klantlink">
+            <UIcon name="i-lucide-building-2" class="size-4 shrink-0" />
+            <span class="truncate">{{ klant.naam }}</span>
+            <span v-if="klant.contacten.length > 1" class="text-stuurhut-muted shrink-0">· {{ klant.contacten.length }} contacten</span>
+            <UIcon name="i-lucide-chevron-right" class="size-4 shrink-0 ml-auto text-stuurhut-muted" />
+          </NuxtLink>
+          <div v-if="contact" class="flex items-center gap-3 mt-3">
             <span class="dossier__avatar" :style="{ background: trajectKleurHex[traject.kleur] }">{{ initialen }}</span>
             <div class="min-w-0">
-              <p class="font-semibold truncate">{{ traject.contactpersoon || 'Contact' }}</p>
-              <p v-if="traject.contactVoorkeur" class="text-xs text-stuurhut-muted">{{ traject.contactVoorkeur }}</p>
+              <p class="font-semibold truncate">{{ contact.naam }}</p>
+              <p v-if="contact.rol || contact.voorkeur" class="text-xs text-stuurhut-muted">{{ [contact.rol, contact.voorkeur].filter(Boolean).join(' · ') }}</p>
             </div>
           </div>
-          <ul class="flex flex-col gap-1 mt-3">
+          <ul v-if="contact" class="flex flex-col gap-1 mt-3">
             <li
               v-for="regel in [
-                { waarde: traject.contactTelefoon, wat: 'Telefoonnummer', icoon: 'i-lucide-phone', href: `tel:${traject.contactTelefoon}`, voorkeur: voorkeur === 'bel' },
-                { waarde: traject.contactEmail, wat: 'E-mailadres', icoon: 'i-lucide-mail', href: `mailto:${traject.contactEmail}`, voorkeur: voorkeur === 'mail' }
+                { waarde: contact.telefoon, wat: 'Telefoonnummer', icoon: 'i-lucide-phone', href: `tel:${contact.telefoon}`, voorkeur: voorkeur === 'bel' },
+                { waarde: contact.email, wat: 'E-mailadres', icoon: 'i-lucide-mail', href: `mailto:${contact.email}`, voorkeur: voorkeur === 'mail' }
               ].filter(r => r.waarde)"
               :key="regel.wat"
               class="dossier__gegeven"
@@ -399,8 +476,8 @@ function formProps(t: Traject) {
         </section>
 
         <!-- Wat nog ontbreekt: één tik om aan te vullen -->
-        <div v-if="!bewerkBlok && (!heeftContact || (traject.scope === 'zakelijk' && !traject.bedragAfgesproken))" class="flex flex-wrap gap-1.5">
-          <button v-if="!heeftContact" type="button" class="dossier__aanvullen" @click="startBewerken('contact')">
+        <div v-if="!bewerkBlok && (!contact || (traject.scope === 'zakelijk' && !traject.bedragAfgesproken))" class="flex flex-wrap gap-1.5">
+          <button v-if="!contact" type="button" class="dossier__aanvullen" @click="startBewerken('contact')">
             <UIcon name="i-lucide-plus" class="size-3.5" /> Contact
           </button>
           <button v-if="traject.scope === 'zakelijk' && !traject.bedragAfgesproken" type="button" class="dossier__aanvullen" @click="startBewerken('kas')">
@@ -656,6 +733,23 @@ function formProps(t: Traject) {
 .dossier__hartslag--vers { color: #35722f; }
 .dossier__hartslag--traag { color: #a3791a; }
 .dossier__hartslag--stil { color: #b3402f; }
+
+.dossier__klantlink {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.75rem;
+  background: var(--color-stuurhut-subtle);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.dossier__klantlink:hover {
+  background: rgb(28 28 28 / 0.08);
+}
 
 .dossier__avatar {
   display: grid;

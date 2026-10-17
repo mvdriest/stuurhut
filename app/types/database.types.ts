@@ -58,6 +58,56 @@ export type Database = {
           },
         ]
       }
+      contacten: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          klant_id: string | null
+          naam: string
+          notities: string | null
+          rol: string | null
+          telefoon: string | null
+          updated_at: string
+          user_id: string
+          voorkeur: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          klant_id?: string | null
+          naam: string
+          notities?: string | null
+          rol?: string | null
+          telefoon?: string | null
+          updated_at?: string
+          user_id: string
+          voorkeur?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          klant_id?: string | null
+          naam?: string
+          notities?: string | null
+          rol?: string | null
+          telefoon?: string | null
+          updated_at?: string
+          user_id?: string
+          voorkeur?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacten_klant_id_fkey"
+            columns: ["klant_id"]
+            isOneToOne: false
+            referencedRelation: "klanten"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dag_blokken: {
         Row: {
           created_at: string
@@ -369,6 +419,48 @@ export type Database = {
           },
         ]
       }
+      klanten: {
+        Row: {
+          adres: string | null
+          btw: string | null
+          created_at: string
+          domeinen: string[]
+          id: string
+          kvk: string | null
+          naam: string
+          notities: string | null
+          updated_at: string
+          user_id: string
+          website: string | null
+        }
+        Insert: {
+          adres?: string | null
+          btw?: string | null
+          created_at?: string
+          domeinen?: string[]
+          id?: string
+          kvk?: string | null
+          naam: string
+          notities?: string | null
+          updated_at?: string
+          user_id: string
+          website?: string | null
+        }
+        Update: {
+          adres?: string | null
+          btw?: string | null
+          created_at?: string
+          domeinen?: string[]
+          id?: string
+          kvk?: string | null
+          naam?: string
+          notities?: string | null
+          updated_at?: string
+          user_id?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       subtaken: {
         Row: {
           halte_id: string | null
@@ -532,6 +624,7 @@ export type Database = {
           bedrag_afgesproken: number | null
           bedrag_gefactureerd: number | null
           contact_email: string | null
+          contact_id: string | null
           contact_telefoon: string | null
           contact_voorkeur: string | null
           contactpersoon: string | null
@@ -540,6 +633,7 @@ export type Database = {
           eerstvolgende_actie: string | null
           financieel_notitie: string | null
           id: string
+          klant_id: string | null
           kleur: string
           naam: string
           scope: string
@@ -554,6 +648,7 @@ export type Database = {
           bedrag_afgesproken?: number | null
           bedrag_gefactureerd?: number | null
           contact_email?: string | null
+          contact_id?: string | null
           contact_telefoon?: string | null
           contact_voorkeur?: string | null
           contactpersoon?: string | null
@@ -562,6 +657,7 @@ export type Database = {
           eerstvolgende_actie?: string | null
           financieel_notitie?: string | null
           id?: string
+          klant_id?: string | null
           kleur?: string
           naam: string
           scope?: string
@@ -576,6 +672,7 @@ export type Database = {
           bedrag_afgesproken?: number | null
           bedrag_gefactureerd?: number | null
           contact_email?: string | null
+          contact_id?: string | null
           contact_telefoon?: string | null
           contact_voorkeur?: string | null
           contactpersoon?: string | null
@@ -584,6 +681,7 @@ export type Database = {
           eerstvolgende_actie?: string | null
           financieel_notitie?: string | null
           id?: string
+          klant_id?: string | null
           kleur?: string
           naam?: string
           scope?: string
@@ -595,10 +693,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "trajecten_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacten"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "trajecten_doel_id_fkey"
             columns: ["doel_id"]
             isOneToOne: false
             referencedRelation: "doelen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trajecten_klant_id_fkey"
+            columns: ["klant_id"]
+            isOneToOne: false
+            referencedRelation: "klanten"
             referencedColumns: ["id"]
           },
         ]

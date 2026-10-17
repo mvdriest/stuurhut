@@ -1,7 +1,7 @@
 // Supabase/PostgREST select-alias strings, mapping each table's snake_case
 // columns to the camelCase shape the frontend composables expect.
 
-export const TRAJECTEN_SELECT = 'id, userId:user_id, naam, status, eerstvolgendeActie:eerstvolgende_actie, kleur, doelId:doel_id, createdAt:created_at, updatedAt:updated_at, scope, wachtOp:wacht_op, streefdatum, bedragAfgesproken:bedrag_afgesproken, bedragGefactureerd:bedrag_gefactureerd, financieelNotitie:financieel_notitie, contactpersoon, contactTelefoon:contact_telefoon, contactEmail:contact_email, contactVoorkeur:contact_voorkeur, diensten'
+export const TRAJECTEN_SELECT = 'id, userId:user_id, naam, status, eerstvolgendeActie:eerstvolgende_actie, kleur, doelId:doel_id, createdAt:created_at, updatedAt:updated_at, scope, wachtOp:wacht_op, streefdatum, bedragAfgesproken:bedrag_afgesproken, bedragGefactureerd:bedrag_gefactureerd, financieelNotitie:financieel_notitie, klantId:klant_id, contactId:contact_id, diensten'
 
 export const VANDAAG_SELECT = 'id, userId:user_id, tekst, klaar, datum, volgorde, createdAt:created_at'
 
@@ -30,3 +30,7 @@ export const TRAJECT_BESTANDEN_SELECT = 'id, userId:user_id, trajectId:traject_i
 export const AFSPRAKEN_SELECT = 'id, userId:user_id, titel, categorie, trajectId:traject_id, datum, startTijd:start_tijd, eindTijd:eind_tijd, createdAt:created_at'
 
 export const TRAJECT_HALTES_SELECT = 'id, userId:user_id, trajectId:traject_id, titel, dienst, fase, icoon, volgorde, streefdatum, afgerondOp:afgerond_op, createdAt:created_at'
+
+export const KLANTEN_SELECT = 'id, userId:user_id, naam, domeinen, website, adres, kvk, btw, notities, createdAt:created_at, updatedAt:updated_at'
+
+export const CONTACTEN_SELECT = 'id, userId:user_id, klantId:klant_id, naam, email, telefoon, rol, voorkeur, notities, createdAt:created_at, updatedAt:updated_at'

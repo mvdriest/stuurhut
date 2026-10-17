@@ -15,10 +15,7 @@ const props = defineProps<{
   bedragAfgesproken?: number | null
   bedragGefactureerd?: number | null
   financieelNotitie?: string | null
-  contactpersoon?: string | null
-  contactTelefoon?: string | null
-  contactEmail?: string | null
-  contactVoorkeur?: string | null
+  klantId?: string | null
   diensten?: Dienst[]
   submitLabel: string
 }>()
@@ -35,10 +32,7 @@ type TrajectFormPayload = {
   bedragAfgesproken: number | null
   bedragGefactureerd: number | null
   financieelNotitie: string
-  contactpersoon: string
-  contactTelefoon: string
-  contactEmail: string
-  contactVoorkeur: string
+  klantId: string | null
   diensten: Dienst[]
 }
 
@@ -58,10 +52,7 @@ const streefdatum = ref(props.streefdatum ?? '')
 const bedragAfgesproken = ref<number | null>(props.bedragAfgesproken ?? null)
 const bedragGefactureerd = ref<number | null>(props.bedragGefactureerd ?? null)
 const financieelNotitie = ref(props.financieelNotitie ?? '')
-const contactpersoon = ref(props.contactpersoon ?? '')
-const contactTelefoon = ref(props.contactTelefoon ?? '')
-const contactEmail = ref(props.contactEmail ?? '')
-const contactVoorkeur = ref(props.contactVoorkeur ?? '')
+const klantId = ref<string | null>(props.klantId ?? null)
 const diensten = ref<Dienst[]>([...(props.diensten ?? [])])
 
 function wisselDienst(d: Dienst) {
@@ -70,6 +61,15 @@ function wisselDienst(d: Dienst) {
 
 const { doelen, refresh: refreshDoelen } = useDoelen()
 await useAsyncData('traject-form-doelen-init', () => doelen.value.length ? Promise.resolve(doelen.value) : refreshDoelen())
+
+const { klanten, refresh: refreshKlanten } = useKlanten()
+await useAsyncData('traject-form-klanten-init', () => klanten.value.length ? Promise.resolve(klanten.value) : refreshKlanten())
+
+// Contactpersonen beheer je in het dossier en op de klantpagina; hier alleen de klant.
+const klantOptions = computed(() => [
+  { label: 'Geen klant', value: null },
+  ...klanten.value.map(k => ({ label: k.naam, value: k.id }))
+])
 
 const doelOptions = computed(() => [
   { label: 'Geen doel', value: null },
@@ -101,10 +101,7 @@ function onSubmit() {
     bedragAfgesproken: bedragAfgesproken.value,
     bedragGefactureerd: bedragGefactureerd.value,
     financieelNotitie: financieelNotitie.value.trim(),
-    contactpersoon: contactpersoon.value.trim(),
-    contactTelefoon: contactTelefoon.value.trim(),
-    contactEmail: contactEmail.value.trim(),
-    contactVoorkeur: contactVoorkeur.value.trim(),
+    klantId: klantId.value,
     diensten: scope.value === 'zakelijk' ? diensten.value : []
   })
 }
@@ -163,21 +160,9 @@ function onSubmit() {
       <USelect v-model="doelId" :items="doelOptions" value-key="value" class="w-full" />
     </UFormField>
 
-    <fieldset class="flex flex-col gap-3 border-t border-current/15 pt-3">
-      <legend class="text-xs uppercase tracking-widest opacity-70 mb-1">Contact</legend>
-      <UFormField label="Naam">
-        <UInput v-model="contactpersoon" placeholder="Contactpersoon" class="w-full" />
-      </UFormField>
-      <UFormField label="Telefoon">
-        <UInput v-model="contactTelefoon" class="w-full" />
-      </UFormField>
-      <UFormField label="E-mail">
-        <UInput v-model="contactEmail" type="email" class="w-full" />
-      </UFormField>
-      <UFormField label="Voorkeur">
-        <UInput v-model="contactVoorkeur" placeholder="Bijv. belt liefst, reageert traag op mail" class="w-full" />
-      </UFormField>
-    </fieldset>
+    <UFormField label="Klant">
+      <USelect v-model="klantId" :items="klantOptions" value-key="value" class="w-full" />
+    </UFormField>
 
     <fieldset class="flex flex-col gap-3 border-t border-current/15 pt-3">
       <legend class="text-xs uppercase tracking-widest opacity-70 mb-1">Financieel</legend>

@@ -18,6 +18,15 @@ const huidig = computed(() => huidigeHalte(props.haltes))
 const gelopen = computed(() => props.haltes.filter(h => h.afgerondOp).length)
 const hartslag = computed(() => staleness(props.traject.updatedAt))
 
+// Onder de naam: wie je spreekt, anders de klant (als die anders heet dan het traject).
+const { klantVan, contactVan } = useKlanten()
+const sub = computed(() => {
+  const klant = klantVan(props.traject.klantId)
+  return contactVan(props.traject.contactId)?.naam
+    ?? (klant && klant.naam !== props.traject.naam ? klant.naam : null)
+    ?? (props.traject.scope === 'prive' ? 'Privé' : 'Zakelijk')
+})
+
 const nuLabel = computed(() => {
   if (!props.haltes.length) return 'Nog geen route'
   if (!huidig.value) return 'Aangekomen'
@@ -30,7 +39,7 @@ const nuLabel = computed(() => {
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
         <h3 class="reiskaart__naam">{{ traject.naam }}</h3>
-        <p class="reiskaart__sub">{{ traject.contactpersoon || (traject.scope === 'prive' ? 'Privé' : 'Zakelijk') }}</p>
+        <p class="reiskaart__sub">{{ sub }}</p>
       </div>
       <div class="flex -space-x-1.5 shrink-0">
         <span
