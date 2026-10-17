@@ -147,7 +147,7 @@ async function maakTraject(payload: Record<string, unknown>) {
       </div>
     </div>
 
-    <UModal v-model:open="nieuwOpen" title="Nieuw traject" description="Alleen de naam is nodig. De rest vul je aan in het dossier.">
+    <UModal v-model:open="nieuwOpen" title="Nieuw traject" description="Beschrijf het in een zin, of vul alleen de naam in. De rest kan later in het dossier.">
       <template #body>
         <TrajectNieuw @submit="maakTraject" @cancel="nieuwOpen = false" />
       </template>
