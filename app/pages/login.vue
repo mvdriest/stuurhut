@@ -28,7 +28,8 @@ async function onSubmit() {
   <div class="flex min-h-screen items-center justify-center p-4">
     <UCard class="w-full max-w-sm">
       <template #header>
-        <h1 class="text-lg font-semibold">Inloggen bij Stuurhut</h1>
+        <p class="sh-kicker">Stuurhut</p>
+        <h1 class="sh-titel text-3xl mt-1">Welkom terug</h1>
       </template>
 
       <form class="flex flex-col gap-4" @submit.prevent="onSubmit">

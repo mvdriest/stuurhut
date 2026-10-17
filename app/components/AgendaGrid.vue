@@ -84,10 +84,11 @@ function ongeplandeItems(dag: AgendaDag) {
 
 <style scoped>
 .agendagrid {
-  background-color: var(--color-stuurhut-card);
+  background: var(--color-stuurhut-glas);
+  backdrop-filter: blur(12px);
   border-radius: 1.25rem;
   padding: 1.125rem 1.125rem 1.375rem;
-  box-shadow: 0 10px 26px rgb(60 38 16 / 0.1);
+  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
   overflow-x: auto;
 }
 
@@ -171,15 +172,15 @@ function ongeplandeItems(dag: AgendaDag) {
 }
 
 .agendagrid__item--klantwerk {
-  background-color: #f5e3d3;
-  border-left: 3px solid #b3702f;
-  color: #5c3416;
+  background-color: #dfe5fb;
+  border-left: 3px solid #2544d8;
+  color: #1a2f8f;
 }
 
 .agendagrid__item--eigen_werk {
-  background-color: #ece7de;
-  border-left: 3px solid #948a76;
-  color: #3a352b;
+  background-color: #f1f7c8;
+  border-left: 3px solid #9fb82e;
+  color: #3d4a10;
 }
 
 .agendagrid__item--prive {

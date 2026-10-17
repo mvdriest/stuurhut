@@ -72,17 +72,17 @@ const urenVrij = computed(() => Math.max(0, urenBeschikbaar.value - urenGepland.
 
 <style scoped>
 .vandaagkaart {
-  background-color: var(--color-stuurhut-card);
+  background: var(--color-stuurhut-glas);
+  backdrop-filter: blur(12px);
   color: var(--color-stuurhut-ink);
   border-radius: 1.25rem;
   padding: 1.125rem 1.25rem;
-  box-shadow: 0 10px 26px rgb(60 38 16 / 0.1);
+  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
 }
 
 .vandaagkaart__titel {
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: 1.375rem;
+  font-size: 1.05rem;
+  font-weight: 600;
   color: var(--color-stuurhut-ink);
 }
 

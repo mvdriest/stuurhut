@@ -15,7 +15,7 @@ export const trajectKleurHex: Record<TrajectKleur, string> = {
 
 /**
  * Geel is te licht voor witte tekst; die kleur krijgt inkt-tekst in plaats van wit.
- * Gebruikt door FolderTab en de traject-pill op de Vandaag-kaarten.
+ * Gebruikt door de traject-pills op de takenborden en in de journal.
  */
 const DONKERE_TEKST_KLEUREN = new Set<TrajectKleur>(['geel'])
 

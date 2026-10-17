@@ -68,9 +68,12 @@ const trajectOpties = computed(() => [
 </script>
 
 <template>
-  <section class="vandaag">
-    <div class="stuurhut-kolom flex flex-wrap items-end justify-between gap-4">
-      <h2 class="stuurhut-titel">Vandaag</h2>
+  <section class="vandaag stuurhut-kolom">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="sh-kicker">Over alle trajecten</p>
+        <h2 class="sh-titel text-[clamp(1.75rem,3vw,2.5rem)] mt-1">Takenbord</h2>
+      </div>
 
       <form class="flex flex-wrap gap-2 items-center pb-2" @submit.prevent="taakToevoegen">
         <UInput v-model="nieuweTekst" placeholder="Nieuwe taak..." class="w-56" />
@@ -79,7 +82,6 @@ const trajectOpties = computed(() => [
       </form>
     </div>
 
-    <!-- Het bord loopt bewust door tot voorbij de rechterrand: er is meer dan past. -->
     <div class="vandaag__bord">
       <div
         v-for="kolom in KOLOMMEN"
@@ -126,44 +128,42 @@ const trajectOpties = computed(() => [
 </template>
 
 <style scoped>
-.vandaag {
-  padding-block: clamp(3rem, 7vw, 7rem);
-}
-
-.vandaag__kop {
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: clamp(1.5rem, 2.3vw, 2.6rem);
-  line-height: 1;
-  letter-spacing: -0.01em;
-  color: var(--color-stuurhut-ink);
-  margin-bottom: 1.5rem;
-}
-
 .vandaag__bord {
-  display: flex;
-  gap: clamp(1rem, 2.3vw, 2.75rem);
-  margin-top: clamp(2rem, 4vw, 4rem);
-  padding-inline: clamp(1.25rem, 8.34vw, 10rem);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(15rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 1.25rem;
   overflow-x: auto;
-  scrollbar-width: thin;
+  padding-bottom: 0.5rem;
+  align-items: start;
 }
 
 .vandaag__kolom {
-  flex: 0 0 min(28rem, 78vw);
   display: flex;
   flex-direction: column;
-  gap: clamp(1rem, 1.6vw, 1.75rem);
+  gap: 0.5rem;
+  min-height: 8rem;
+  padding: 0.9rem;
+  border-radius: 1.25rem;
+  background: rgb(253 250 244 / 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.vandaag__kop {
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.1rem 0.25rem 0.4rem;
 }
 
 .taakkaart {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  padding: clamp(1.25rem, 1.8vw, 2rem);
-  border-radius: 1.25rem;
-  background-color: var(--color-stuurhut-card);
-  box-shadow: 0 10px 26px rgb(60 38 16 / 0.12);
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  background: var(--color-stuurhut-glas);
+  box-shadow: 0 6px 18px rgb(30 40 50 / 0.1);
   cursor: grab;
 }
 
@@ -173,16 +173,15 @@ const trajectOpties = computed(() => [
 
 .taakkaart__pil {
   border-radius: 9999px;
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: clamp(0.875rem, 1vw, 1.125rem);
+  font-size: 0.72rem;
+  font-weight: 600;
   line-height: 1;
-  padding: 0.75em 1.35em;
+  padding: 0.35em 0.7em;
 }
 
 .taakkaart__pil--leeg {
   background-color: var(--color-stuurhut-subtle);
-  color: var(--color-stuurhut-ink);
+  color: var(--color-stuurhut-muted);
 }
 
 .taakkaart__acties {
@@ -193,21 +192,20 @@ const trajectOpties = computed(() => [
   transition: opacity 150ms ease-out;
 }
 
-.taakkaart:hover .taakkaart__acties {
+.taakkaart:hover .taakkaart__acties,
+.taakkaart:focus-within .taakkaart__acties {
   opacity: 1;
 }
 
 .taakkaart__titel {
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: clamp(1.35rem, 1.9vw, 2.15rem);
-  line-height: 0.98;
-  letter-spacing: -0.01em;
-  color: var(--color-stuurhut-ink);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.3;
 }
 
 .vandaag__leeg {
-  font-size: 0.875rem;
+  padding: 0 0.25rem;
+  font-size: 0.8rem;
   color: var(--color-stuurhut-muted);
 }
 </style>

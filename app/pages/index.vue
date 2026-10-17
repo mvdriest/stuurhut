@@ -114,16 +114,6 @@ function wisselFocus() {
 
 // Na een afgeronde focusfase de teller op de kaart bijwerken.
 watch(() => focusState.value.fase, () => setTimeout(refreshOverzicht, 800))
-
-const menuItems = [
-  [
-    { label: 'Vandaag (dashboard)', icon: 'i-lucide-layout-dashboard', to: '/vandaag' },
-    { label: 'Agenda', icon: 'i-lucide-calendar', to: '/agenda' },
-    { label: 'Trajecten', icon: 'i-lucide-route', to: '/trajecten' },
-    { label: 'Journal', icon: 'i-lucide-notebook-pen', to: '/journal' },
-    { label: 'Ideeën', icon: 'i-lucide-lightbulb', to: '/ideeen' }
-  ]
-]
 </script>
 
 <template>
@@ -145,12 +135,8 @@ const menuItems = [
 
     <!-- Bovenbalk -->
     <header class="kaartui__balk">
-      <div class="flex gap-2">
-        <UDropdownMenu :items="menuItems" :content="{ align: 'start' }">
-          <button type="button" class="kaartui__chip kaartui__chip--vierkant" aria-label="Menu">
-            <UIcon name="i-lucide-asterisk" class="size-6" />
-          </button>
-        </UDropdownMenu>
+      <!-- Links ruimte voor de menuknop (AppMenu), die vast linksboven zweeft. -->
+      <div class="flex gap-2 pl-[3.75rem]">
         <div class="kaartui__chip">
           <UIcon name="i-lucide-grip" class="size-4 text-stuurhut-muted" />
           <span class="font-medium">Stuurhut</span>

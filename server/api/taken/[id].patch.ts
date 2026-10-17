@@ -4,7 +4,8 @@ const bodySchema = z.object({
   tekst: z.string().min(1).optional(),
   status: z.enum(['to_do', 'bezig', 'review', 'klaar']).optional(),
   geschatteDuur: z.number().int().positive().optional(),
-  volgorde: z.number().int().optional()
+  volgorde: z.number().int().optional(),
+  halteId: z.string().uuid().nullable().optional()
 })
 
 export default defineEventHandler(async (event) => {
@@ -19,6 +20,7 @@ export default defineEventHandler(async (event) => {
       status: updates.status,
       geschatte_duur: updates.geschatteDuur,
       volgorde: updates.volgorde,
+      halte_id: updates.halteId,
       // Bijhouden wanneer een taak klaar is, zodat het Vandaag-bord alleen
       // vandaag afgeronde taken in "Ready" toont.
       klaar_op: updates.status === undefined ? undefined : (updates.status === 'klaar' ? new Date().toISOString() : null)

@@ -67,27 +67,26 @@ async function verwijderen(id: string) {
 </script>
 
 <template>
-  <div class="bg-stuurhut-mist min-h-screen">
-    <AppHeaderFoto compact titel="Ideeën" subtitel="Een vrije plek om ideeën uit te werken." />
+  <div>
+    <PaginaKop titel="Ideeën" subtitel="Een vrije plek om ideeën uit te werken — los, of als zijpad van een traject." />
 
-    <div class="stuurhut-kolom flex flex-col gap-6 py-[clamp(2rem,5vw,4rem)]">
-      <UCard>
-        <form class="flex flex-col gap-2" @submit.prevent="toevoegen">
-          <UInput v-model="nieuwTitel" placeholder="Titel van je idee..." autofocus />
-          <UTextarea v-model="nieuwInhoud" placeholder="Werk het uit... (optioneel)" :rows="3" />
-          <div class="flex gap-2 items-center">
-            <USelect v-model="nieuwTrajectId" :items="trajectOptions" value-key="value" placeholder="Koppel aan een traject (optioneel)" class="flex-1" />
-            <UButton type="submit" icon="i-lucide-plus">Vastleggen</UButton>
-          </div>
-        </form>
-      </UCard>
+    <div class="stuurhut-kolom flex flex-col gap-6 mt-8">
+      <form class="sh-kaart flex flex-col gap-3 max-w-3xl" @submit.prevent="toevoegen">
+        <h2 class="sh-kop"><UIcon name="i-lucide-lightbulb" class="size-5" /> Nieuw idee</h2>
+        <UInput v-model="nieuwTitel" placeholder="Titel van je idee..." autofocus />
+        <UTextarea v-model="nieuwInhoud" placeholder="Werk het uit... (optioneel)" :rows="3" />
+        <div class="flex flex-wrap gap-2 items-center">
+          <USelect v-model="nieuwTrajectId" :items="trajectOptions" value-key="value" placeholder="Koppel aan een traject (optioneel)" class="flex-1 min-w-48" />
+          <UButton type="submit" icon="i-lucide-plus">Vastleggen</UButton>
+        </div>
+      </form>
 
-      <p v-if="!pending && ideeen.length === 0" class="text-muted text-sm">
+      <p v-if="!pending && ideeen.length === 0" class="sh-kaart text-sm">
         Nog geen ideeën vastgelegd.
       </p>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <UCard v-for="idee in ideeen" :key="idee.id" variant="subtle">
+        <UCard v-for="idee in ideeen" :key="idee.id">
           <template v-if="editingId === idee.id">
             <div class="flex flex-col gap-2">
               <UInput v-model="editTitel" autofocus />
@@ -102,7 +101,7 @@ async function verwijderen(id: string) {
           <template v-else>
             <div class="flex flex-col gap-2">
               <div class="flex items-start justify-between gap-2">
-                <h3 class="font-medium">{{ idee.titel }}</h3>
+                <h3 class="font-semibold">{{ idee.titel }}</h3>
                 <div class="flex gap-1 shrink-0">
                   <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" @click="startEdit(idee)" />
                   <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" @click="verwijderen(idee.id)" />

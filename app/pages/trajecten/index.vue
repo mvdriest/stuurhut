@@ -1,232 +1,202 @@
 <script setup lang="ts">
 import type { Traject } from '~/composables/useTrajecten'
-import { trajectKleurHex, trajectTekstKleur } from '~/utils/kleuren'
-import { TRAJECT_STATUS_STYLES } from '~/utils/trajectStatus'
+import type { HalteFase } from '~/utils/route'
+import { FASE_LABELS } from '~/utils/route'
 import { groepeerTrajecten } from '~/utils/trajectGroepen'
-import { staleness } from '~/utils/trajectStaleness'
 
+// Alle reizen. Twee weergaven: "Reizen" (gegroepeerd op wie er aan zet is) en
+// "Pijplijn" (gegroepeerd op de fase van de halte waar elk traject nu is).
 definePageMeta({
   pageTransition: { name: 'stuurhut-nav', mode: 'out-in' }
 })
 
 const { trajecten, pending, refresh } = useTrajecten()
-const { doelen, refresh: refreshDoelen } = useDoelen()
+const { taken, refresh: refreshTaken } = useTaken()
+const { refresh: refreshHaltes, routeVan } = useHaltes()
 
-await useAsyncData('trajecten-overzicht-init', () => Promise.all([refresh(), refreshDoelen()]))
+await useAsyncData('trajecten-overzicht-init', () => Promise.all([refresh(), refreshTaken(), refreshHaltes()]))
 
-const scopeTab = ref<'alle' | 'zakelijk' | 'prive'>('alle')
+const scope = ref<'alle' | 'zakelijk' | 'prive'>('alle')
+const weergave = ref<'reizen' | 'pijplijn'>('reizen')
 
-const scoped = computed(() => trajecten.value.filter(t => scopeTab.value === 'alle' || t.scope === scopeTab.value))
+const scoped = computed(() => trajecten.value.filter(t => scope.value === 'alle' || t.scope === scope.value))
+
+const openTaken = computed(() => {
+  const telling: Record<string, number> = {}
+  for (const t of taken.value) {
+    if (t.trajectId && t.status !== 'klaar') telling[t.trajectId] = (telling[t.trajectId] ?? 0) + 1
+  }
+  return telling
+})
 
 const groepen = computed(() => {
-  const g = groepeerTrajecten(scoped.value)
+  const actief = scoped.value.filter(t => t.status !== 'on_hold')
+  const g = groepeerTrajecten(actief)
   return [
     { key: 'jijAanZet', naam: 'Jij bent aan zet', items: g.jijAanZet },
-    { key: 'wachtOpAnderen', naam: 'Wacht op iemand anders', items: g.wachtOpAnderen }
+    { key: 'wachtOpAnderen', naam: 'Wacht op iemand anders', items: g.wachtOpAnderen },
+    { key: 'onHold', naam: 'Even geparkeerd', items: scoped.value.filter(t => t.status === 'on_hold') }
   ].filter(gr => gr.items.length > 0)
 })
 
-function doelTitel(doelId: string | null) {
-  return doelId === null ? null : doelen.value.find(d => d.id === doelId)?.titel ?? null
+type Kolom = HalteFase | 'geen'
+const KOLOMMEN: { key: Kolom, label: string }[] = [
+  { key: 'geen', label: 'Nog geen route' },
+  { key: 'verkennen', label: FASE_LABELS.verkennen },
+  { key: 'uitvoeren', label: FASE_LABELS.uitvoeren },
+  { key: 'afronden', label: FASE_LABELS.afronden }
+]
+
+function kolomVan(t: Traject): Kolom {
+  const route = routeVan(t.id)
+  if (!route.length) return 'geen'
+  return huidigeHalte(route)?.fase ?? 'afronden'
 }
 
-const isAdding = ref(false)
+const pijplijn = computed(() => KOLOMMEN.map((k) => {
+  const items = scoped.value.filter(t => t.status !== 'on_hold' && kolomVan(t) === k.key)
+  const waarde = items.reduce((som, t) => som + (t.bedragAfgesproken ?? 0), 0)
+  return { ...k, items, waarde }
+}))
 
-async function createTraject(payload: Record<string, unknown>) {
-  await $fetch('/api/trajecten', { method: 'POST', body: payload })
-  isAdding.value = false
-  await refresh()
+const nieuwOpen = ref(false)
+
+async function maakTraject(payload: Record<string, unknown>) {
+  const traject = await $fetch<Traject>('/api/trajecten', { method: 'POST', body: payload })
+  nieuwOpen.value = false
+  await Promise.all([refresh(), refreshHaltes()])
+  await navigateTo(`/trajecten/${traject.id}`)
 }
 </script>
 
 <template>
-  <div class="bg-stuurhut-mist min-h-screen">
-    <AppHeaderFoto compact titel="Trajecten" subtitel="Alles wat loopt of wacht — gegroepeerd op wat jij nu kunt doen." />
-
-    <div class="stuurhut-kolom flex flex-col gap-8 py-[clamp(2rem,5vw,4rem)]">
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <div class="flex items-center gap-1 rounded-full bg-black/5 p-1 w-fit">
+  <div>
+    <PaginaKop titel="Trajecten" subtitel="Elk traject is een reis. Hier zie je waar iedereen onderweg is.">
+      <template #balk-links>
+        <div class="sh-segment" role="group" aria-label="Filter">
           <button
-            v-for="tab in [{ key: 'alle', label: 'Alle' }, { key: 'zakelijk', label: 'Zakelijk' }, { key: 'prive', label: 'Privé' }]"
-            :key="tab.key"
+            v-for="s in [{ key: 'alle', label: 'Alle' }, { key: 'zakelijk', label: 'Zakelijk' }, { key: 'prive', label: 'Privé' }]"
+            :key="s.key"
             type="button"
-            class="trajecten-ov__tab"
-            :class="{ 'trajecten-ov__tab--actief': scopeTab === tab.key }"
-            @click="scopeTab = tab.key as typeof scopeTab"
+            :aria-pressed="scope === s.key"
+            @click="scope = s.key as typeof scope"
           >
-            {{ tab.label }}
+            {{ s.label }}
           </button>
         </div>
-        <span class="text-sm text-stuurhut-muted">{{ scoped.length }} van {{ trajecten.length }}</span>
-        <UButton v-if="!isAdding" icon="i-lucide-plus" color="neutral" variant="subtle" class="rounded-full" @click="isAdding = true">
-          Nieuw traject
-        </UButton>
+      </template>
+      <template #balk-rechts>
+        <div class="sh-segment" role="group" aria-label="Weergave">
+          <button type="button" :aria-pressed="weergave === 'reizen'" @click="weergave = 'reizen'">
+            <UIcon name="i-lucide-route" class="size-4" /> <span class="hidden sm:inline">Reizen</span>
+          </button>
+          <button type="button" :aria-pressed="weergave === 'pijplijn'" @click="weergave = 'pijplijn'">
+            <UIcon name="i-lucide-columns-3" class="size-4" /> <span class="hidden sm:inline">Pijplijn</span>
+          </button>
+        </div>
+      </template>
+
+      <button type="button" class="sh-cta !py-2 !pl-4 !pr-2" @click="nieuwOpen = true">
+        <span class="font-semibold text-sm">Nieuw traject</span>
+        <span class="sh-cta__pijl !size-9"><UIcon name="i-lucide-plus" class="size-4" /></span>
+      </button>
+    </PaginaKop>
+
+    <div class="stuurhut-kolom mt-8">
+      <div v-if="!pending && scoped.length === 0" class="sh-kaart max-w-md">
+        <p class="text-sm">{{ trajecten.length ? 'Niets gevonden met deze filter.' : 'Nog geen trajecten. Begin een nieuwe reis.' }}</p>
       </div>
 
-      <div v-if="isAdding" class="rounded-2xl p-5 text-stuurhut-ink bg-stuurhut-card shadow-[0_10px_26px_rgb(60_38_16_/_0.1)]">
-        <TrajectForm submit-label="Toevoegen" @submit="createTraject" @cancel="isAdding = false" />
+      <!-- Reizen -->
+      <div v-else-if="weergave === 'reizen'" class="flex flex-col gap-8">
+        <section v-for="groep in groepen" :key="groep.key">
+          <h2 class="trajecten__groep">
+            <span class="trajecten__groep-label">{{ groep.naam }}</span>
+            <span class="text-stuurhut-muted">{{ groep.items.length }}</span>
+          </h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            <ReisKaart
+              v-for="t in groep.items"
+              :key="t.id"
+              :traject="t"
+              :haltes="routeVan(t.id)"
+              :open-taken="openTaken[t.id] ?? 0"
+            />
+          </div>
+        </section>
       </div>
 
-      <p v-if="!pending && trajecten.length === 0" class="text-stuurhut-muted text-sm">
-        Nog geen trajecten. Voeg er een toe.
-      </p>
-      <p v-else-if="!pending && scoped.length === 0" class="text-stuurhut-muted text-sm">
-        Niets gevonden met deze filter.
-      </p>
-
-      <div v-for="groep in groepen" :key="groep.key" class="flex flex-col gap-4">
-        <div class="flex items-center gap-2">
-          <span class="size-1.5 rounded-full bg-stuurhut-ink" />
-          <h2 class="text-xs font-bold uppercase tracking-[0.1em] text-stuurhut-ink">{{ groep.naam }}</h2>
-          <span class="text-xs text-stuurhut-muted">· {{ groep.items.length }}</span>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          <NuxtLink
-            v-for="traject in (groep.items as Traject[])"
-            :key="traject.id"
-            :to="`/trajecten/${traject.id}`"
-            class="trajectkaart"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <h3 class="trajectkaart__titel">{{ traject.naam }}</h3>
-                <span class="trajectkaart__sub">{{ traject.contactpersoon || (traject.scope === 'prive' ? 'Privé' : 'Zakelijk') }}</span>
-              </div>
-              <UBadge :color="TRAJECT_STATUS_STYLES[traject.status].color" variant="subtle" class="shrink-0">
-                {{ TRAJECT_STATUS_STYLES[traject.status].label }}
-              </UBadge>
-            </div>
-
-            <div class="trajectkaart__stap">
-              <p class="trajectkaart__stap-label">Volgende stap</p>
-              <p class="trajectkaart__stap-tekst">{{ traject.eerstvolgendeActie || 'Geen eerstvolgende actie ingesteld.' }}</p>
-            </div>
-
-            <div class="flex items-center justify-between gap-2 flex-wrap">
-              <span class="trajectkaart__stale" :class="`trajectkaart__stale--${staleness(traject.updatedAt).niveau}`">
-                {{ staleness(traject.updatedAt).label }}
-              </span>
-              <div class="flex items-center gap-2 flex-wrap">
-                <span v-if="traject.status === 'wachtend' && traject.wachtOp" class="trajectkaart__wacht">{{ traject.wachtOp }}</span>
-                <span v-if="doelTitel(traject.doelId)" class="text-xs text-stuurhut-muted">Doel: {{ doelTitel(traject.doelId) }}</span>
-                <span class="trajectkaart__kleur" :style="{ backgroundColor: trajectKleurHex[traject.kleur], color: trajectTekstKleur(traject.kleur) }">
-                  {{ traject.naam.charAt(0) }}
-                </span>
-              </div>
-            </div>
-          </NuxtLink>
-        </div>
+      <!-- Pijplijn -->
+      <div v-else class="pijplijn">
+        <section v-for="kolom in pijplijn" :key="kolom.key" class="pijplijn__kolom">
+          <header class="pijplijn__kop">
+            <span class="font-semibold">{{ kolom.label }}</span>
+            <span class="text-stuurhut-muted text-sm">{{ kolom.items.length }}</span>
+            <span v-if="kolom.waarde" class="ml-auto text-xs text-stuurhut-muted">€ {{ kolom.waarde.toLocaleString('nl-NL', { maximumFractionDigits: 0 }) }}</span>
+          </header>
+          <ReisKaart
+            v-for="t in kolom.items"
+            :key="t.id"
+            :traject="t"
+            :haltes="routeVan(t.id)"
+            :open-taken="openTaken[t.id] ?? 0"
+            compact
+          />
+          <p v-if="!kolom.items.length" class="px-1 text-sm text-stuurhut-muted">Leeg</p>
+        </section>
       </div>
     </div>
+
+    <USlideover v-model:open="nieuwOpen" title="Nieuw traject" side="right">
+      <template #body>
+        <TrajectForm submit-label="Reis beginnen" @submit="maakTraject" @cancel="nieuwOpen = false" />
+      </template>
+    </USlideover>
   </div>
 </template>
 
 <style scoped>
-.trajecten-ov__tab {
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: 0.8125rem;
-  letter-spacing: 0.02em;
-  padding: 0.5rem 1rem;
+.trajecten__groep {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.75rem 0.25rem;
+  font-size: 0.9rem;
+}
+
+.trajecten__groep-label {
+  padding: 0.3rem 0.8rem;
   border-radius: 9999px;
-  color: var(--color-stuurhut-muted);
-  transition: background-color 150ms ease-out, color 150ms ease-out;
+  background: var(--color-stuurhut-glas);
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgb(30 40 50 / 0.08);
 }
 
-.trajecten-ov__tab--actief {
-  background-color: var(--color-stuurhut-accent);
-  color: oklch(20% 0.05 48);
+.pijplijn {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(16rem, 1fr));
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  align-items: start;
 }
 
-.trajectkaart {
+.pijplijn__kolom {
   display: flex;
   flex-direction: column;
-  gap: 0.875rem;
-  padding: 1.125rem 1.25rem;
+  gap: 0.5rem;
+  min-height: 10rem;
+  padding: 0.75rem;
   border-radius: 1.25rem;
-  background-color: var(--color-stuurhut-card);
-  box-shadow: 0 8px 22px rgb(60 38 16 / 0.09);
-  transition: transform 150ms ease-out, box-shadow 150ms ease-out;
-  color: inherit;
+  background: rgb(253 250 244 / 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
-.trajectkaart:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgb(60 38 16 / 0.13);
-}
-
-.trajectkaart__titel {
-  font-weight: 700;
-  font-size: 1.05rem;
-  line-height: 1.25;
-  color: var(--color-stuurhut-ink);
-}
-
-.trajectkaart__sub {
-  font-size: 0.8rem;
-  color: var(--color-stuurhut-muted);
-}
-
-.trajectkaart__stap {
-  border-radius: 0.8rem;
-  padding: 0.8rem 0.95rem;
-  background-color: var(--color-stuurhut-subtle);
-}
-
-.trajectkaart__stap-label {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-stuurhut-muted);
-  margin-bottom: 0.25rem;
-}
-
-.trajectkaart__stap-tekst {
-  font-weight: 600;
-  font-size: 0.9375rem;
-  line-height: 1.35;
-  color: var(--color-stuurhut-ink);
-}
-
-.trajectkaart__stale {
-  font-size: 0.75rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.trajectkaart__stale::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: currentColor;
-}
-
-.trajectkaart__stale--vers { color: #35722f; }
-.trajectkaart__stale--traag { color: #a3791a; }
-.trajectkaart__stale--stil { color: #b3402f; }
-
-.trajectkaart__wacht {
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.25rem 0.6rem;
-  border-radius: 0.5rem;
-  background-color: #f4ead0;
-  color: #7a5a1a;
-}
-
-.trajectkaart__kleur {
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-display);
-  font-size: 0.75rem;
-  text-transform: uppercase;
+.pijplijn__kop {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.25rem 0.4rem 0.4rem;
 }
 </style>

@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import type { Taak } from '~/composables/useTaken'
+import type { Halte } from '~/composables/useHaltes'
 
 const props = defineProps<{
   trajectId: string
+  /** Route van het traject: nieuwe taken landen standaard bij de huidige halte. */
+  haltes?: Halte[]
 }>()
 
 const { taken, pending, refresh: refreshTaken } = useTaken()
@@ -29,10 +32,26 @@ function takenVoorKolom(status: Taak['status']) {
 
 const nieuweTekst = ref('')
 const nieuweDuur = ref<number | null>(null)
+const nieuweHalteId = ref<string | null>(null)
+
+const halteOpties = computed(() => [
+  { label: 'Geen halte', value: null },
+  ...(props.haltes ?? []).map(h => ({ label: h.titel, value: h.id }))
+])
+
+watch(() => props.haltes, (haltes) => {
+  if (nieuweHalteId.value === null || !haltes?.some(h => h.id === nieuweHalteId.value)) {
+    nieuweHalteId.value = haltes?.find(h => !h.afgerondOp)?.id ?? null
+  }
+}, { immediate: true })
+
+function halteNaam(id: string | null) {
+  return id === null ? null : props.haltes?.find(h => h.id === id)?.titel ?? null
+}
 
 async function taakToevoegen() {
   if (!nieuweTekst.value.trim()) return
-  const body: Record<string, unknown> = { trajectId: props.trajectId, tekst: nieuweTekst.value.trim() }
+  const body: Record<string, unknown> = { trajectId: props.trajectId, tekst: nieuweTekst.value.trim(), halteId: nieuweHalteId.value }
   if (nieuweDuur.value) body.geschatteDuur = nieuweDuur.value
   await $fetch('/api/taken', { method: 'POST', body })
   nieuweTekst.value = ''
@@ -63,9 +82,10 @@ async function onDrop(status: Taak['status']) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-8">
-    <form class="flex gap-2" @submit.prevent="taakToevoegen">
-      <UInput v-model="nieuweTekst" placeholder="Nieuwe taak..." class="flex-1" />
+  <div class="flex flex-col gap-6">
+    <form class="flex flex-wrap gap-2" @submit.prevent="taakToevoegen">
+      <UInput v-model="nieuweTekst" placeholder="Nieuwe taak..." class="flex-1 min-w-48" />
+      <USelect v-if="haltes?.length" v-model="nieuweHalteId" :items="halteOpties" value-key="value" class="w-44" />
       <UInput v-model.number="nieuweDuur" type="number" placeholder="min" class="w-24" />
       <UButton type="submit" icon="i-lucide-plus">Toevoegen</UButton>
     </form>
@@ -95,6 +115,7 @@ async function onDrop(status: Taak['status']) {
             </div>
           </div>
           <p class="taakkaart__titel">{{ taak.tekst }}</p>
+          <span v-if="halteNaam(taak.halteId)" class="taakkaart__halte"><UIcon name="i-lucide-map-pin" class="size-3" /> {{ halteNaam(taak.halteId) }}</span>
         </article>
 
         <p v-if="takenVoorKolom(kolom.status).length === 0" class="bord__leeg">Leeg</p>
@@ -110,36 +131,37 @@ async function onDrop(status: Taak['status']) {
 <style scoped>
 .bord {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
-  gap: clamp(1rem, 1.8vw, 2rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+  gap: 0.75rem;
   align-items: start;
-}
-
-.bord__kop {
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: clamp(1.15rem, 1.6vw, 1.75rem);
-  line-height: 1;
-  letter-spacing: -0.01em;
-  color: var(--color-stuurhut-ink);
-  margin-bottom: 1rem;
 }
 
 .bord__kolom {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  min-height: 6rem;
+  gap: 0.5rem;
+  min-height: 8rem;
+  padding: 0.9rem;
+  border-radius: 1.25rem;
+  background: rgb(253 250 244 / 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.bord__kop {
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.1rem 0.25rem 0.4rem;
 }
 
 .taakkaart {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 1.25rem;
+  gap: 0.4rem;
+  padding: 0.85rem 1rem;
   border-radius: 1rem;
-  background-color: var(--color-stuurhut-card);
-  box-shadow: 0 8px 22px rgb(60 38 16 / 0.1);
+  background: var(--color-stuurhut-glas);
+  box-shadow: 0 6px 18px rgb(30 40 50 / 0.1);
   cursor: grab;
 }
 
@@ -148,10 +170,7 @@ async function onDrop(status: Taak['status']) {
 }
 
 .taakkaart__duur {
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: 0.85rem;
-  letter-spacing: 0.04em;
+  font-size: 0.75rem;
   color: var(--color-stuurhut-muted);
 }
 
@@ -163,21 +182,32 @@ async function onDrop(status: Taak['status']) {
   transition: opacity 150ms ease-out;
 }
 
-.taakkaart:hover .taakkaart__acties {
+.taakkaart:hover .taakkaart__acties,
+.taakkaart:focus-within .taakkaart__acties {
   opacity: 1;
 }
 
 .taakkaart__titel {
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: clamp(1.05rem, 1.35vw, 1.45rem);
-  line-height: 1;
-  letter-spacing: -0.01em;
-  color: var(--color-stuurhut-ink);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.taakkaart__halte {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  align-self: flex-start;
+  padding: 0.1rem 0.5rem;
+  border-radius: 9999px;
+  background: var(--color-stuurhut-subtle);
+  font-size: 0.7rem;
+  color: var(--color-stuurhut-muted);
 }
 
 .bord__leeg {
-  font-size: 0.875rem;
+  padding: 0 0.25rem;
+  font-size: 0.8rem;
   color: var(--color-stuurhut-muted);
 }
 </style>

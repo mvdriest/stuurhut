@@ -7,6 +7,7 @@ export interface Taak {
   status: 'to_do' | 'bezig' | 'review' | 'klaar'
   volgorde: number
   klaarOp: string | null
+  halteId: string | null
   createdAt: string
 }
 

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { TRAJECT_KLEUREN } from '~/utils/kleuren'
+import { DIENSTEN } from '~/utils/route'
 
 const bodySchema = z.object({
   naam: z.string().min(1),
@@ -16,7 +17,8 @@ const bodySchema = z.object({
   contactpersoon: z.string().optional(),
   contactTelefoon: z.string().optional(),
   contactEmail: z.string().optional(),
-  contactVoorkeur: z.string().optional()
+  contactVoorkeur: z.string().optional(),
+  diensten: z.array(z.enum(DIENSTEN)).default([])
 })
 
 export default defineEventHandler(async (event) => {
@@ -41,11 +43,13 @@ export default defineEventHandler(async (event) => {
       contactpersoon: body.contactpersoon,
       contact_telefoon: body.contactTelefoon,
       contact_email: body.contactEmail,
-      contact_voorkeur: body.contactVoorkeur
+      contact_voorkeur: body.contactVoorkeur,
+      diensten: body.diensten
     })
     .select(TRAJECTEN_SELECT)
     .single()
 
   if (error) throw createError({ statusCode: 500, statusMessage: error.message })
+  await synchroniseerRoute(supabase, user.id, data.id, body.diensten, [])
   return data
 })

@@ -1,16 +1,17 @@
 import { z } from 'zod'
 
 const bodySchema = z.object({
-  inhoud: z.string().min(1)
+  inhoud: z.string().min(1),
+  trajectId: z.string().uuid().nullable().optional()
 })
 
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await requireSupabaseUser(event)
-  const { inhoud } = await readValidatedBody(event, bodySchema.parse)
+  const { inhoud, trajectId } = await readValidatedBody(event, bodySchema.parse)
 
   const { data, error } = await supabase
     .from('journal_entries')
-    .insert({ user_id: user.id, inhoud })
+    .insert({ user_id: user.id, inhoud, traject_id: trajectId ?? null })
     .select(JOURNAL_SELECT)
     .single()
 

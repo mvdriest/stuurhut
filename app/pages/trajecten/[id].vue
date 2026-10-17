@@ -1,6 +1,14 @@
 <script setup lang="ts">
+import type { Traject } from '~/composables/useTrajecten'
+import type { Dienst } from '~/utils/route'
+import { DIENSTEN, DIENST_INFO } from '~/utils/route'
+import { trajectKleurHex } from '~/utils/kleuren'
 import { TRAJECT_STATUS_STYLES } from '~/utils/trajectStatus'
+import { staleness } from '~/utils/trajectStaleness'
 
+// Het klantdossier: de reis van één traject. Bovenaan het landschap met de route
+// (links de klant, rechts de halte waar je bent en het logboek), daaronder de
+// werkplaats met het volledige takenbord en de bestanden.
 definePageMeta({
   pageTransition: { name: 'stuurhut-nav', mode: 'out-in' }
 })
@@ -10,55 +18,122 @@ const trajectId = computed(() => String(route.params.id))
 
 const { trajecten, refresh: refreshTrajecten } = useTrajecten()
 const { taken, refresh: refreshTaken } = useTaken()
-const { entries: journalEntries, refresh: refreshJournal } = useJournal()
+const { refresh: refreshJournal } = useJournal()
+const { refresh: refreshAfspraken } = useAfspraken()
+const { refresh: refreshHaltes, routeVan } = useHaltes()
 const { bestanden, refresh: refreshBestanden } = useTrajectBestanden(trajectId.value)
 
-await useAsyncData('traject-detail-init', () => Promise.all([
-  refreshTrajecten(), refreshTaken(), refreshJournal(), refreshBestanden()
+await useAsyncData(`dossier-${trajectId.value}`, () => Promise.all([
+  refreshTrajecten(), refreshTaken(), refreshJournal(), refreshAfspraken(), refreshHaltes(), refreshBestanden()
 ]))
 
 const traject = computed(() => trajecten.value.find(t => t.id === trajectId.value))
+const reis = computed(() => routeVan(trajectId.value))
+const takenVanTraject = computed(() => taken.value.filter(t => t.trajectId === trajectId.value))
 
-const eur = (n: number) => `€ ${n.toLocaleString('nl-NL')}`
+// --- Haltes ------------------------------------------------------------------------
 
-const financePct = computed(() => {
+const huidig = computed(() => huidigeHalte(reis.value))
+const gekozenId = ref<string | null>(null)
+const gekozen = computed(() => reis.value.find(h => h.id === gekozenId.value) ?? huidig.value ?? reis.value.at(-1) ?? null)
+const gekozenIndex = computed(() => gekozen.value ? reis.value.findIndex(h => h.id === gekozen.value!.id) : -1)
+
+const openPerHalte = computed(() => {
+  const telling: Record<string, number> = {}
+  for (const t of takenVanTraject.value) {
+    if (t.halteId && t.status !== 'klaar') telling[t.halteId] = (telling[t.halteId] ?? 0) + 1
+  }
+  return telling
+})
+
+async function routeGewijzigd() {
+  await Promise.all([refreshHaltes(), refreshTrajecten(), refreshTaken()])
+}
+
+async function halteGewijzigd() {
+  // Na afronden springt de selectie mee naar de nieuwe huidige halte.
+  gekozenId.value = null
+  await routeGewijzigd()
+}
+
+// --- Klant ---------------------------------------------------------------------------
+
+const eur = (n: number) => `€ ${n.toLocaleString('nl-NL', { maximumFractionDigits: 0 })}`
+
+const dienstenLabel = computed(() => traject.value?.diensten.map(d => DIENST_INFO[d].label).join(' + ') ?? '')
+const onderwegSinds = computed(() => traject.value
+  ? new Date(traject.value.createdAt).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', timeZone: 'Europe/Amsterdam' })
+  : '')
+const hartslag = computed(() => traject.value ? staleness(traject.value.updatedAt) : null)
+
+const initialen = computed(() => (traject.value?.contactpersoon ?? '')
+  .split(/\s+/).filter(w => w && w[0] === w[0]?.toUpperCase()).map(w => w[0]).slice(0, 2).join('') || '?')
+
+const voorkeur = computed<'bel' | 'mail' | null>(() => {
+  const v = traject.value?.contactVoorkeur?.toLowerCase() ?? ''
+  if (/bel|telefo/.test(v)) return 'bel'
+  if (/mail/.test(v)) return 'mail'
+  return null
+})
+
+const kasPct = computed(() => {
   const t = traject.value
   if (!t?.bedragAfgesproken) return 0
   return Math.min(100, Math.round(((t.bedragGefactureerd ?? 0) / t.bedragAfgesproken) * 100))
 })
 
-const takenVoorTraject = computed(() => taken.value.filter(t => t.trajectId === trajectId.value))
+const andereTrajecten = computed(() => [[
+  { label: 'Alle trajecten', icon: 'i-lucide-route', to: '/trajecten' }
+], trajecten.value
+  .filter(t => t.id !== trajectId.value && t.status !== 'on_hold')
+  .map(t => ({ label: t.naam, to: `/trajecten/${t.id}` }))])
 
-async function taakToggle(taakId: string, huidigeStatus: string) {
-  await $fetch(`/api/taken/${taakId}`, { method: 'PATCH', body: { status: huidigeStatus === 'klaar' ? 'to_do' : 'klaar' } })
-  await refreshTaken()
+// --- Bewerken ------------------------------------------------------------------------
+
+const bewerkenOpen = ref(false)
+const routeOpen = ref(false)
+
+async function opslaan(payload: Record<string, unknown>) {
+  await $fetch(`/api/trajecten/${trajectId.value}`, { method: 'PATCH', body: payload })
+  bewerkenOpen.value = false
+  await routeGewijzigd()
 }
 
-const journalVoorTraject = computed(() =>
-  journalEntries.value
-    .filter(e => e.trajectId === trajectId.value)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-)
+// Nog geen route: diensten kiezen en uitstippelen.
+const startDiensten = ref<Dienst[]>([])
+watch(traject, t => { if (t && !startDiensten.value.length) startDiensten.value = [...t.diensten] }, { immediate: true })
 
-function datumLabel(iso: string) {
-  return new Date(iso).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' })
+function wisselStartDienst(d: Dienst) {
+  startDiensten.value = startDiensten.value.includes(d) ? startDiensten.value.filter(x => x !== d) : [...startDiensten.value, d]
 }
 
-const nieuwBestandKind = ref('')
+async function stippelUit() {
+  if (!startDiensten.value.length) return
+  // Zonder haltes bouwt de server de hele route uit het sjabloon op.
+  await $fetch(`/api/trajecten/${trajectId.value}`, { method: 'PATCH', body: { diensten: startDiensten.value } })
+  await routeGewijzigd()
+}
+
+const eigenHalte = ref('')
+async function voegEigenHalteToe() {
+  if (!eigenHalte.value.trim()) return
+  await $fetch('/api/haltes', { method: 'POST', body: { trajectId: trajectId.value, titel: eigenHalte.value.trim() } })
+  eigenHalte.value = ''
+  await routeGewijzigd()
+}
+
+// --- Bestanden -----------------------------------------------------------------------
+
 const nieuwBestandNaam = ref('')
 const nieuwBestandUrl = ref('')
 
 async function bestandToevoegen() {
   if (!nieuwBestandNaam.value.trim()) return
+  const url = nieuwBestandUrl.value.trim()
   await $fetch(`/api/trajecten/${trajectId.value}/bestanden`, {
     method: 'POST',
-    body: {
-      kind: nieuwBestandKind.value.trim() || 'Link',
-      naam: nieuwBestandNaam.value.trim(),
-      url: nieuwBestandUrl.value.trim() || undefined
-    }
+    body: { kind: url ? 'Link' : 'Notitie', naam: nieuwBestandNaam.value.trim(), url: url || undefined }
   })
-  nieuwBestandKind.value = ''
   nieuwBestandNaam.value = ''
   nieuwBestandUrl.value = ''
   await refreshBestanden()
@@ -69,298 +144,423 @@ async function bestandVerwijderen(id: string) {
   await refreshBestanden()
 }
 
-const activeSection = ref('taken')
-
-const secties = [
-  { key: 'taken', label: 'Taken' },
-  { key: 'meetings', label: 'Meetings' },
-  { key: 'offertes', label: 'Offertes' },
-  { key: 'overig', label: 'Overig' }
-]
+function formProps(t: Traject) {
+  const { id: _id, userId: _u, createdAt: _c, updatedAt: _up, ...rest } = t
+  return rest
+}
 </script>
 
 <template>
-  <div class="bg-stuurhut-mist min-h-screen">
-    <AppHeaderFoto
-      compact
-      :titel="traject?.naam ?? 'Traject'"
-      :subtitel="traject ? TRAJECT_STATUS_STYLES[traject.status].label : undefined"
-    />
-    <div v-if="traject" class="h-2" :style="{ backgroundColor: trajectKleurHex[traject.kleur] }" />
+  <div v-if="traject" class="dossier">
+    <section class="dossier__scene">
+      <Landschap :horizon="27" :vast="false" class="dossier__landschap">
+        <ReisRoute
+          v-if="reis.length"
+          :haltes="reis"
+          :geselecteerd-id="gekozen?.id ?? null"
+          :open-taken="openPerHalte"
+          @kies="gekozenId = $event"
+        />
+      </Landschap>
 
-    <div v-if="traject" class="stuurhut-kolom flex flex-col gap-8 py-[clamp(2rem,5vw,4rem)]">
-      <div class="dossier-stap">
-        <p class="dossier-stap__label">Volgende stap</p>
-        <p class="dossier-stap__tekst">{{ traject.eerstvolgendeActie || 'Geen eerstvolgende actie ingesteld.' }}</p>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div class="feitkaart">
-          <span class="feitkaart__label">Streefdatum</span>
-          <span class="feitkaart__waarde">{{ traject.streefdatum || 'Geen streefdatum' }}</span>
-        </div>
-        <div class="feitkaart">
-          <span class="feitkaart__label">Afgesproken</span>
-          <span class="feitkaart__waarde">{{ traject.bedragAfgesproken ? eur(traject.bedragAfgesproken) : '—' }}</span>
-        </div>
-        <div class="feitkaart">
-          <span class="feitkaart__label">Gefactureerd</span>
-          <span class="feitkaart__waarde">{{ traject.bedragGefactureerd ? eur(traject.bedragGefactureerd) : '—' }}</span>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="dossierkaart">
-          <h3 class="dossierkaart__titel">Contact</h3>
-          <dl class="flex flex-col gap-2.5">
-            <div><dt class="dossierkaart__dt">Naam</dt><dd class="dossierkaart__dd">{{ traject.contactpersoon || '—' }}</dd></div>
-            <div><dt class="dossierkaart__dt">Telefoon</dt><dd class="dossierkaart__dd">{{ traject.contactTelefoon || '—' }}</dd></div>
-            <div><dt class="dossierkaart__dt">E-mail</dt><dd class="dossierkaart__dd">{{ traject.contactEmail || '—' }}</dd></div>
-            <div><dt class="dossierkaart__dt">Voorkeur</dt><dd class="dossierkaart__dd text-sm text-stuurhut-muted">{{ traject.contactVoorkeur || '—' }}</dd></div>
-          </dl>
-        </div>
-
-        <div class="dossierkaart">
-          <h3 class="dossierkaart__titel">Financiën</h3>
-          <template v-if="traject.bedragAfgesproken">
-            <div class="flex flex-col gap-2">
-              <div class="flex justify-between text-sm"><span>Afgesproken</span><span class="font-bold">{{ eur(traject.bedragAfgesproken) }}</span></div>
-              <div class="flex justify-between text-sm"><span>Gefactureerd</span><span class="font-bold">{{ eur(traject.bedragGefactureerd ?? 0) }}</span></div>
-              <div class="h-1.5 rounded-full bg-black/10 overflow-hidden my-1">
-                <div class="h-full rounded-full stuurhut-voortgang" :style="{ width: `${financePct}%` }" />
-              </div>
-              <p v-if="traject.financieelNotitie" class="text-xs text-stuurhut-muted">{{ traject.financieelNotitie }}</p>
-            </div>
-          </template>
-          <p v-else class="text-sm text-stuurhut-muted">Geen facturatie — dit is een privéproject.</p>
-        </div>
-      </div>
-
-      <div>
-        <h3 class="dossier-koptitel">Volledige takenlijst</h3>
-        <div class="dossierkaart !py-1.5">
-          <div
-            v-for="(taak, i) in takenVoorTraject"
-            :key="taak.id"
-            class="flex items-start gap-2.5 py-2.5"
-            :class="{ 'border-b border-black/8': i < takenVoorTraject.length - 1 }"
-          >
-            <button type="button" class="dossier-check" :class="{ 'dossier-check--klaar': taak.status === 'klaar' }" @click="taakToggle(taak.id, taak.status)">
-              <UIcon v-if="taak.status === 'klaar'" name="i-lucide-check" class="size-3" />
+      <!-- Bovenbalk -->
+      <header class="dossier__balk">
+        <div class="flex gap-2 pl-[3.75rem] min-w-0">
+          <UDropdownMenu :items="andereTrajecten" :content="{ align: 'start' }">
+            <button type="button" class="sh-chip text-sm min-w-0">
+              <UIcon name="i-lucide-route" class="size-4 shrink-0" />
+              <span class="text-stuurhut-muted hidden sm:inline">Trajecten</span>
+              <UIcon name="i-lucide-chevron-right" class="size-4 text-stuurhut-muted hidden sm:inline" />
+              <span class="font-semibold truncate">{{ traject.naam }}</span>
+              <UIcon name="i-lucide-chevron-down" class="size-4 shrink-0" />
             </button>
-            <span class="text-sm" :class="taak.status === 'klaar' ? 'line-through text-stuurhut-muted' : 'text-stuurhut-ink'">{{ taak.tekst }}</span>
-          </div>
-          <p v-if="takenVoorTraject.length === 0" class="py-3 text-sm text-stuurhut-muted">Nog geen taken bij dit traject.</p>
+          </UDropdownMenu>
         </div>
-      </div>
-
-      <div>
-        <h3 class="dossier-koptitel">Hoe het gelopen is</h3>
-        <div v-if="journalVoorTraject.length" class="flex flex-col">
-          <div v-for="entry in journalVoorTraject" :key="entry.id" class="flex gap-3 items-start pb-4">
-            <div class="flex flex-col items-center self-stretch shrink-0 pt-1">
-              <span class="size-2 rounded-full bg-stuurhut-ink" />
-              <span class="flex-1 w-px bg-black/15 mt-1" />
-            </div>
-            <div class="min-w-0">
-              <p class="text-xs font-bold uppercase tracking-wider text-stuurhut-muted">{{ datumLabel(entry.createdAt) }}</p>
-              <p class="text-sm leading-relaxed">{{ entry.inhoud }}</p>
-            </div>
-          </div>
+        <div class="flex gap-2">
+          <button type="button" class="sh-chip text-sm" @click="routeOpen = true">
+            <UIcon name="i-lucide-map" class="size-4" /><span class="hidden sm:inline">Route</span>
+          </button>
+          <button type="button" class="sh-chip text-sm" @click="bewerkenOpen = true">
+            <UIcon name="i-lucide-pencil" class="size-4" /><span class="hidden sm:inline">Bewerken</span>
+          </button>
         </div>
-        <p v-else class="text-sm text-stuurhut-muted">Nog niets vastgelegd voor dit traject.</p>
-      </div>
+      </header>
 
-      <div>
-        <h3 class="dossier-koptitel">Spullen erbij</h3>
-        <div class="flex flex-col gap-2 mb-3">
-          <div v-for="bestand in bestanden" :key="bestand.id" class="flex items-center gap-2.5 bg-stuurhut-card border border-black/8 rounded-xl px-3 py-2.5 group">
-            <span class="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/8 text-stuurhut-muted">{{ bestand.kind }}</span>
-            <a v-if="bestand.url" :href="bestand.url" target="_blank" class="text-sm flex-1 truncate">{{ bestand.naam }}</a>
-            <span v-else class="text-sm flex-1 truncate">{{ bestand.naam }}</span>
-            <UButton icon="i-lucide-x" size="xs" color="neutral" variant="ghost" class="opacity-0 group-hover:opacity-100" @click="bestandVerwijderen(bestand.id)" />
-          </div>
-        </div>
-        <form class="flex flex-wrap gap-2" @submit.prevent="bestandToevoegen">
-          <UInput v-model="nieuwBestandKind" placeholder="Soort (bijv. PDF)" class="w-32" />
-          <UInput v-model="nieuwBestandNaam" placeholder="Naam" class="flex-1 min-w-40" />
-          <UInput v-model="nieuwBestandUrl" placeholder="Link (optioneel)" class="flex-1 min-w-40" />
-          <UButton type="submit" icon="i-lucide-plus" />
-        </form>
-      </div>
-
-      <div>
-        <div class="flex items-baseline gap-3 mb-3">
-          <h3 class="dossier-koptitel !mb-0">Losse gedachten</h3>
-          <NuxtLink :to="`/journal?traject=${trajectId}`" class="text-xs font-semibold">Bekijk in Journal →</NuxtLink>
-        </div>
-        <div v-if="journalVoorTraject.length" class="flex flex-wrap gap-3">
-          <div v-for="entry in journalVoorTraject" :key="entry.id" class="notitiekaart">
-            <span class="text-sm leading-relaxed">{{ entry.inhoud }}</span>
-            <span v-if="entry.resultaatLabel" class="text-[11px] text-stuurhut-muted">{{ entry.resultaatLabel }}</span>
-          </div>
-        </div>
-        <p v-else class="text-sm text-stuurhut-muted">Nog geen losse gedachten bij dit traject.</p>
-      </div>
-
-      <SectieTabs
-        v-model="activeSection"
-        :secties="secties"
-        :color="trajectKleurHex[traject.kleur]"
-        :text-color="trajectTekstKleur(traject.kleur)"
-      />
-
-      <Transition name="panel-fade" mode="out-in">
-        <TakenBord v-if="activeSection === 'taken'" key="taken" :traject-id="trajectId" />
-
-        <div v-else-if="activeSection === 'meetings'" key="meetings" class="rounded-2xl border border-dashed border-black/20 p-10 text-center">
-          <p class="text-sm text-stuurhut-muted">Meetings — nog niet gebouwd.</p>
-        </div>
-
-        <div v-else-if="activeSection === 'offertes'" key="offertes" class="rounded-2xl border border-dashed border-black/20 p-10 text-center">
-          <p class="text-sm text-stuurhut-muted">Offertes — nog niet gebouwd.</p>
-        </div>
-
-        <div v-else key="overig" class="rounded-2xl bg-stuurhut-card p-6 flex flex-col gap-4 text-stuurhut-ink">
-          <div>
-            <p class="text-xs uppercase tracking-widest text-stuurhut-muted mb-1">Status</p>
-            <UBadge :color="TRAJECT_STATUS_STYLES[traject.status].color" variant="subtle">
+      <!-- Links: de klant -->
+      <aside class="dossier__links">
+        <div class="dossier__klant">
+          <h1 class="sh-titel dossier__naam">{{ traject.naam }}</h1>
+          <p class="dossier__meta">
+            <template v-if="dienstenLabel">{{ dienstenLabel }} · </template>onderweg sinds {{ onderwegSinds }}
+          </p>
+          <div class="flex flex-wrap gap-1.5 mt-2.5">
+            <span v-if="hartslag" class="dossier__hartslag" :class="`dossier__hartslag--${hartslag.niveau}`">
+              <UIcon name="i-lucide-heart-pulse" class="size-3.5" /> {{ hartslag.label }}
+            </span>
+            <span v-if="traject.status !== 'actief'" class="dossier__hartslag">
               {{ TRAJECT_STATUS_STYLES[traject.status].label }}
-            </UBadge>
-          </div>
-          <div>
-            <p class="text-xs uppercase tracking-widest text-stuurhut-muted mb-1">Eerstvolgende actie</p>
-            <p class="text-sm">{{ traject.eerstvolgendeActie || 'Geen eerstvolgende actie ingesteld.' }}</p>
+            </span>
           </div>
         </div>
-      </Transition>
-    </div>
 
-    <div v-else class="stuurhut-kolom py-16 text-sm text-stuurhut-muted">
-      Traject niet gevonden. <NuxtLink to="/trajecten" class="font-semibold">Terug naar Trajecten</NuxtLink>.
+        <section v-if="traject.contactpersoon || traject.contactEmail || traject.contactTelefoon" class="sh-kaart">
+          <h2 class="sh-kop"><UIcon name="i-lucide-user-round" class="size-5" /> Reisgenoot</h2>
+          <div class="flex items-center gap-3 mt-3">
+            <span class="dossier__avatar" :style="{ background: trajectKleurHex[traject.kleur] }">{{ initialen }}</span>
+            <div class="min-w-0">
+              <p class="font-semibold truncate">{{ traject.contactpersoon || 'Contact' }}</p>
+              <p v-if="traject.contactVoorkeur" class="text-xs text-stuurhut-muted">{{ traject.contactVoorkeur }}</p>
+            </div>
+          </div>
+          <div class="flex gap-1.5 mt-3">
+            <a v-if="traject.contactTelefoon" :href="`tel:${traject.contactTelefoon}`" class="dossier__actie" :class="{ 'dossier__actie--voorkeur': voorkeur === 'bel' }">
+              <UIcon name="i-lucide-phone" class="size-4" /> Bel
+            </a>
+            <a v-if="traject.contactEmail" :href="`mailto:${traject.contactEmail}`" class="dossier__actie" :class="{ 'dossier__actie--voorkeur': voorkeur === 'mail' }">
+              <UIcon name="i-lucide-mail" class="size-4" /> Mail
+            </a>
+            <NuxtLink to="/agenda" class="dossier__actie">
+              <UIcon name="i-lucide-calendar-plus" class="size-4" /> Plan
+            </NuxtLink>
+          </div>
+        </section>
+
+        <section v-if="traject.bedragAfgesproken" class="sh-kaart">
+          <h2 class="sh-kop"><UIcon name="i-lucide-wallet" class="size-5" /> Reiskas</h2>
+          <div class="flex items-baseline justify-between gap-2 mt-3">
+            <strong class="sh-titel text-[1.75rem]">{{ eur(traject.bedragGefactureerd ?? 0) }}</strong>
+            <span class="text-xs text-stuurhut-muted text-right">van {{ eur(traject.bedragAfgesproken) }} gefactureerd</span>
+          </div>
+          <div class="dossier__kas"><span :style="{ width: `${kasPct}%` }" /></div>
+          <p v-if="traject.financieelNotitie" class="text-xs text-stuurhut-muted mt-2">{{ traject.financieelNotitie }}</p>
+        </section>
+
+        <section v-if="traject.wachtOp" class="sh-kaart flex gap-3 items-start">
+          <span class="dossier__wacht"><UIcon name="i-lucide-hourglass" class="size-4" /></span>
+          <div>
+            <p class="font-semibold text-sm">Wacht op</p>
+            <p class="text-xs text-stuurhut-muted">{{ traject.wachtOp }}</p>
+          </div>
+        </section>
+
+        <button type="button" class="sh-cta" @click="bewerkenOpen = true">
+          <span class="flex-1 min-w-0">
+            <span class="sh-kicker !text-stuurhut-ink/60 block">Volgende stap</span>
+            <span class="font-semibold">{{ traject.eerstvolgendeActie || 'Bepaal de volgende stap' }}</span>
+          </span>
+          <span class="sh-cta__pijl"><UIcon name="i-lucide-arrow-right" class="size-5" /></span>
+        </button>
+      </aside>
+
+      <!-- Smal: de route als lijst -->
+      <section v-if="reis.length" class="sh-kaart dossier__routelijst">
+        <h2 class="sh-kop mb-1"><UIcon name="i-lucide-route" class="size-5" /> De route</h2>
+        <ReisRoute :haltes="reis" :geselecteerd-id="gekozen?.id ?? null" :open-taken="openPerHalte" @kies="gekozenId = $event" />
+      </section>
+
+      <!-- Rechts: de halte en het logboek -->
+      <aside class="dossier__rechts">
+        <ReisHalteKaart
+          v-if="gekozen"
+          :key="gekozen.id"
+          :halte="gekozen"
+          :index="gekozenIndex"
+          :totaal="reis.length"
+          :is-huidig="gekozen.id === huidig?.id"
+          :taken="takenVanTraject.filter(t => t.halteId === gekozen!.id)"
+          :traject-id="traject.id"
+          @terug-naar-nu="gekozenId = null"
+          @gewijzigd="halteGewijzigd"
+        />
+        <section v-else-if="!reis.length" class="sh-kaart">
+          <p class="sh-kicker">Nog geen route</p>
+          <h2 class="sh-titel text-[1.75rem] mt-2">Stippel de reis uit</h2>
+          <p class="text-sm text-stuurhut-muted mt-1.5">
+            Wat neemt {{ traject.naam }} af? De route volgt uit de diensten, en is daarna per halte aan te passen.
+          </p>
+          <div class="flex flex-wrap gap-2 mt-3">
+            <button
+              v-for="d in DIENSTEN"
+              :key="d"
+              type="button"
+              class="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm transition"
+              :class="startDiensten.includes(d) ? 'bg-stuurhut-ink text-white' : 'bg-stuurhut-subtle text-stuurhut-muted'"
+              :aria-pressed="startDiensten.includes(d)"
+              @click="wisselStartDienst(d)"
+            >
+              <UIcon :name="DIENST_INFO[d].icoon" class="size-4" /> {{ DIENST_INFO[d].label }}
+            </button>
+          </div>
+          <button type="button" class="sh-cta w-full mt-4" :disabled="!startDiensten.length" :class="{ 'opacity-50': !startDiensten.length }" @click="stippelUit">
+            <span class="flex-1 font-semibold">Route uitstippelen</span>
+            <span class="sh-cta__pijl"><UIcon name="i-lucide-route" class="size-5" /></span>
+          </button>
+          <form class="flex items-center gap-2 mt-4 text-sm" @submit.prevent="voegEigenHalteToe">
+            <UInput v-model="eigenHalte" placeholder="Of begin met een eigen halte…" class="flex-1" size="sm" />
+            <UButton type="submit" icon="i-lucide-plus" size="sm" color="neutral" variant="soft" aria-label="Halte toevoegen" />
+          </form>
+        </section>
+
+        <ReisLogboek :traject-id="traject.id" :haltes="reis" :taken="takenVanTraject" />
+      </aside>
+    </section>
+
+    <!-- Werkplaats -->
+    <section id="werkplaats" class="stuurhut-kolom dossier__werkplaats">
+      <div class="flex items-end justify-between gap-4 flex-wrap mb-5">
+        <div>
+          <p class="sh-kicker">Werkplaats</p>
+          <h2 class="sh-titel text-[clamp(1.75rem,3vw,2.5rem)] mt-1">Alle taken</h2>
+        </div>
+      </div>
+      <TakenBord :traject-id="traject.id" :haltes="reis" />
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-8">
+        <section class="sh-kaart">
+          <h2 class="sh-kop"><UIcon name="i-lucide-paperclip" class="size-5" /> Bagage</h2>
+          <p class="text-xs text-stuurhut-muted mt-1">Links en documenten die bij deze reis horen.</p>
+          <ul class="mt-3 flex flex-col">
+            <li v-for="bestand in bestanden" :key="bestand.id" class="sh-rij items-center group">
+              <span class="flex items-center gap-2.5 min-w-0">
+                <UIcon :name="bestand.url ? 'i-lucide-link' : 'i-lucide-file-text'" class="size-4 shrink-0 text-stuurhut-muted" />
+                <a v-if="bestand.url" :href="bestand.url" target="_blank" rel="noopener" class="truncate text-sm hover:underline">{{ bestand.naam }}</a>
+                <span v-else class="truncate text-sm">{{ bestand.naam }}</span>
+              </span>
+              <UButton icon="i-lucide-x" size="xs" color="neutral" variant="ghost" class="opacity-0 group-hover:opacity-100 focus:opacity-100" aria-label="Verwijderen" @click="bestandVerwijderen(bestand.id)" />
+            </li>
+          </ul>
+          <form class="flex flex-wrap gap-2 mt-3" @submit.prevent="bestandToevoegen">
+            <UInput v-model="nieuwBestandNaam" placeholder="Naam" class="flex-1 min-w-36" />
+            <UInput v-model="nieuwBestandUrl" placeholder="Link (optioneel)" class="flex-1 min-w-36" />
+            <UButton type="submit" icon="i-lucide-plus" aria-label="Toevoegen" />
+          </form>
+        </section>
+
+        <section class="sh-kaart">
+          <h2 class="sh-kop"><UIcon name="i-lucide-map" class="size-5" /> De route in het kort</h2>
+          <p v-if="!reis.length" class="text-sm text-stuurhut-muted mt-2">Nog geen route uitgestippeld.</p>
+          <ol v-else class="mt-3 flex flex-wrap gap-1.5">
+            <li
+              v-for="h in reis"
+              :key="h.id"
+              class="dossier__stap"
+              :class="{ 'dossier__stap--klaar': h.afgerondOp, 'dossier__stap--nu': h.id === huidig?.id }"
+            >
+              {{ h.titel }}
+            </li>
+          </ol>
+          <UButton class="mt-4" icon="i-lucide-pencil" color="neutral" variant="soft" @click="routeOpen = true">Route aanpassen</UButton>
+        </section>
+      </div>
+    </section>
+
+    <USlideover v-model:open="bewerkenOpen" title="Traject bewerken" side="right">
+      <template #body>
+        <TrajectForm v-bind="formProps(traject)" submit-label="Opslaan" @submit="opslaan" @cancel="bewerkenOpen = false" />
+      </template>
+    </USlideover>
+
+    <USlideover v-model:open="routeOpen" title="Route aanpassen" side="right" :ui="{ content: 'max-w-3xl' }">
+      <template #body>
+        <ReisRouteBewerken :traject="traject" :haltes="reis" @gewijzigd="routeGewijzigd" />
+      </template>
+    </USlideover>
+  </div>
+
+  <div v-else class="stuurhut-kolom pt-28">
+    <div class="sh-kaart max-w-md">
+      <p class="text-sm">Dit traject bestaat niet (meer).</p>
+      <NuxtLink to="/trajecten" class="text-sm font-semibold mt-2 inline-block">Terug naar Trajecten →</NuxtLink>
     </div>
   </div>
 </template>
 
 <style scoped>
-.panel-fade-enter-active,
-.panel-fade-leave-active {
-  transition: opacity 180ms ease;
-}
-.panel-fade-enter-from,
-.panel-fade-leave-to {
-  opacity: 0;
+.dossier__scene {
+  position: relative;
+  height: 100vh;
+  min-height: 46rem;
 }
 
-.dossier-stap {
-  border-radius: 1rem;
-  padding: 1.125rem 1.25rem;
-  background: linear-gradient(150deg, oklch(74% 0.14 72) 0%, oklch(64% 0.15 46) 100%);
+.dossier__balk {
+  position: absolute;
+  inset: 1.25rem 1.25rem auto 1.25rem;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
-.dossier-stap__label {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: oklch(30% 0.07 54);
-  margin-bottom: 0.4rem;
-}
-
-.dossier-stap__tekst {
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: clamp(1.35rem, 2.4vw, 1.75rem);
-  line-height: 1;
-  color: oklch(20% 0.05 48);
-}
-
-.feitkaart {
-  background-color: var(--color-stuurhut-card);
-  border-radius: 0.875rem;
-  padding: 0.875rem 1rem;
+.dossier__links,
+.dossier__rechts {
+  position: absolute;
+  top: 6rem;
+  bottom: 1.25rem;
+  z-index: 10;
+  width: min(20rem, calc(100vw - 2.5rem));
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  box-shadow: 0 6px 16px rgb(60 38 16 / 0.08);
+  gap: 0.75rem;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 0.25rem;
+  margin: -0.25rem;
 }
 
-.feitkaart__label {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+.dossier__links {
+  left: 1.25rem;
+}
+
+.dossier__rechts {
+  right: 1.25rem;
+  /* Ruimte voor de focus-pil rechtsonder. */
+  bottom: 5.5rem;
+}
+
+.dossier__klant {
+  padding: 0.25rem 0.5rem 0.5rem;
+  text-shadow: 0 1px 12px rgb(255 255 255 / 0.8);
+}
+
+.dossier__naam {
+  font-size: clamp(2rem, 3vw, 2.75rem);
+}
+
+.dossier__meta {
+  margin-top: 0.45rem;
+  font-size: 0.88rem;
   color: var(--color-stuurhut-muted);
 }
 
-.feitkaart__waarde {
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--color-stuurhut-ink);
+.dossier__hartslag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.7rem 0.3rem 0.55rem;
+  border-radius: 9999px;
+  background: rgb(253 250 244 / 0.9);
+  font-size: 0.75rem;
+  box-shadow: 0 4px 12px rgb(30 40 50 / 0.08);
+  text-shadow: none;
 }
 
-.dossierkaart {
-  background-color: var(--color-stuurhut-card);
-  color: var(--color-stuurhut-ink);
-  border-radius: 1rem;
-  padding: 1.125rem 1.25rem;
-  box-shadow: 0 8px 22px rgb(60 38 16 / 0.1);
-}
+.dossier__hartslag--vers { color: #35722f; }
+.dossier__hartslag--traag { color: #a3791a; }
+.dossier__hartslag--stil { color: #b3402f; }
 
-.dossierkaart__titel {
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: 1.25rem;
-  margin-bottom: 0.75rem;
-  color: var(--color-stuurhut-ink);
-}
-
-.dossierkaart__dt {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-stuurhut-muted);
-}
-
-.dossierkaart__dd {
-  font-size: 0.9rem;
-}
-
-.dossier-koptitel {
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: 1.5rem;
-  margin-bottom: 0.75rem;
-  color: var(--color-stuurhut-ink);
-}
-
-.dossier-check {
-  width: 1.125rem;
-  height: 1.125rem;
-  margin-top: 0.125rem;
-  border-radius: 0.35rem;
-  border: 1.5px solid rgb(0 0 0 / 0.25);
+.dossier__avatar {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
   flex-shrink: 0;
+  border-radius: 9999px;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.25);
+}
+
+.dossier__actie {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem;
+  border-radius: 0.7rem;
+  background: var(--color-stuurhut-subtle);
+  font-size: 0.82rem;
+}
+
+.dossier__actie--voorkeur {
+  background: var(--color-stuurhut-ink);
   color: #fff;
 }
 
-.dossier-check--klaar {
-  background-color: var(--color-stuurhut-ink);
-  border-color: var(--color-stuurhut-ink);
+.dossier__kas {
+  height: 0.55rem;
+  margin-top: 0.6rem;
+  border-radius: 9999px;
+  background: var(--color-stuurhut-subtle);
+  overflow: hidden;
 }
 
-.notitiekaart {
-  flex: 1 1 250px;
-  background-color: #f4ead0;
-  border: 1px solid #e7d5a6;
-  border-radius: 0.875rem;
-  padding: 0.875rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+.dossier__kas span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(to right, #7d93ff, #2544d8);
+}
+
+.dossier__wacht {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: 0.75rem;
+  background: #fdecc8;
+  color: #b5651d;
+}
+
+.dossier__routelijst {
+  display: none;
+}
+
+.dossier__werkplaats {
+  padding-top: clamp(3rem, 6vw, 5rem);
+}
+
+.dossier__stap {
+  padding: 0.3rem 0.7rem;
+  border-radius: 9999px;
+  background: var(--color-stuurhut-subtle);
+  font-size: 0.8rem;
+  color: var(--color-stuurhut-muted);
+}
+
+.dossier__stap--klaar {
+  background: rgb(37 68 216 / 0.12);
+  color: #2544d8;
+}
+
+.dossier__stap--nu {
+  background: var(--color-stuurhut-limoen);
+  color: var(--color-stuurhut-ink);
+  font-weight: 600;
+}
+
+/* Smal: alles onder elkaar, de route als lijst in een kaart. */
+@media (max-width: 1023px) {
+  .dossier__scene {
+    height: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.25rem;
+  }
+
+  .dossier__landschap {
+    display: none;
+  }
+
+  .dossier__balk,
+  .dossier__links,
+  .dossier__rechts {
+    position: static;
+    width: auto;
+    overflow: visible;
+    margin: 0;
+    padding: 0;
+  }
+
+  .dossier__balk {
+    margin-bottom: 1rem;
+  }
+
+  .dossier__routelijst {
+    display: block;
+  }
 }
 </style>

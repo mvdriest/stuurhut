@@ -27,6 +27,9 @@ today:
   See "Design system" / "UI structure" below and `docs/design-system.md`.
 - **Journal**: a simple text-entry log — a textarea to add an entry, a chronological list
   below. See "Journal" below.
+- **Kaartstijl + klantreis (CRM)**: every page now shares the look of the map page
+  (landscape background, glass cards, hamburger menu), and each zakelijk traject has a
+  *route* of haltes derived from the services it buys. See "Klantreis" below.
 - **Supabase migration**: the backend was moved from Drizzle ORM over local/Turso SQLite +
   `nuxt-auth-utils` sessions to Supabase (Postgres + Supabase Auth), keeping every feature
   above unchanged. See "Database" and "Single-user auth model" below — those sections
@@ -74,7 +77,7 @@ anymore.
 via `auth.admin.createUser()`, and the client immediately calls
 `useSupabaseClient().auth.signInWithPassword()` to establish the session. `/login` is a
 plain `signInWithPassword()` call; logout is `useSupabaseClient().auth.signOut()`
-(`AppNav.vue`). `app/middleware/auth.global.ts` reads `useSupabaseUser()` and does 100% of
+(`AppMenu.vue`). `app/middleware/auth.global.ts` reads `useSupabaseUser()` and does 100% of
 the redirect decision itself (logged-in users away from `/login`/`/setup`, logged-out users
 to `/setup` if no account exists yet, else `/login`) — the module's own auto-redirect is
 disabled via `supabase: { redirect: false }` in `nuxt.config.ts` so it never fights with
@@ -102,7 +105,8 @@ keep the visual identity consistent — and a nullable `doel_id` FK, see "Doelen
 beloningen" below), `vandaag_prioriteiten`, `inbox_items`. AI-weekplanning tables:
 `dag_blokken`, `subtaken`, `geplande_taken`, `tijdschatting_correcties`. Fase 1.5 tables:
 `ideeen`, `focus_sessies`. Fase 3 tables: `doelen`, `doel_mijlpalen`. Journal table:
-`journal_entries`. Every table has RLS enabled with one `for all using (auth.uid() =
+`journal_entries`. Klantreis: `traject_haltes`, plus `trajecten.diensten text[]` and a
+nullable `subtaken.halte_id`. Every table has RLS enabled with one `for all using (auth.uid() =
 user_id) with check (auth.uid() = user_id)` policy — this is the actual authorization
 boundary (see "API routes" below). **Row-level security alone is not enough**: a table
 also needs plain Postgres `GRANT`s (`select, insert, update, delete`) to the
@@ -190,7 +194,7 @@ already nested (two parallel queries grouped in JS server-side, no Postgres join
 the existing "fetch flat, join in JS" convention from `server/utils/weekplanning.ts`). A
 traject can optionally link to a
 goal it contributes to via `trajecten.doelId` (nullable FK, set from a `USelect` in
-`TrajectForm.vue`, shown as a small label in `TrajectenLijst.vue`'s expanded detail) —
+`TrajectForm.vue`) —
 this is the only cross-link built so far; AI-weekplanning does not yet use it (see the
 "Not yet built" note above).
 
@@ -231,27 +235,43 @@ used in other files — they are not reliably auto-imported as *types* (only the
 composable/util functions are), matching the existing `GeplandeTaak`/`DagBlok` imports in
 `WeekplanningOverzicht.vue`.
 
-**Design system**: fonts are Komu New D (display/headlines) and Helvetica Neue (body),
-loaded via an Adobe Fonts (Typekit) kit stylesheet added in `nuxt.config.ts`
-(`app.head.link`) — exact CSS `font-family` names (`"komu-new-d"`,
-`"helvetica-neue-lt-pro"`, `"helvetica-neue-lt-pro-cond"`) are set as `--font-display` /
-`--font-sans` / `--font-condensed` in the Tailwind v4 `@theme` block in
-`app/assets/css/main.css`, along with the mist/ink palette and the `trajecten.kleur`
-palette tokens. The visual layer was rebuilt to match the Figma concept (file `Stuurhut`,
-frame `Web 1920 – 1`) — **`docs/design-system.md` is the authoritative spec** for the
-column, the type scale, the folder-tab geometry and the card patterns; read it before
-touching layout or colour. Two things that are easy to get wrong and are documented there:
-the traject colours live in *two* places (`@theme` tokens and `trajectKleurHex` in
-`app/utils/kleuren.ts`) and must be changed in both; and the traject colours were eyeballed
-from the concept rather than read out of Figma dev-mode, so they are approximations.
-`AppHeaderFoto.vue` is the full-bleed photo hero (wordmark + `AppNav.vue` pills on top,
-date/greeting/quote at the bottom), with a `compact` prop for subpages; when no explicit
-`afbeelding` prop is given it picks one of four time-of-day photos in `public/images/`
-(`hero-dawn.jpg`/`hero-day.jpg`/`hero-sunset.jpg`/`hero-night.jpg`, chosen from the local
-hour at render time) — the "dynamic wallpaper" from the original brief, without
-live/crossfade updates while a page stays open. `app/components/FolderTab.vue` is the
-GSAP-animated stacked folder-bar used by `TrajectenLijst.vue`; the traject-detail section
-nav is a separate component (`SectieTabs.vue`) rather than a second mode of FolderTab.
+**Design system**: fonts are Komu New D (display) and Helvetica Neue (body), loaded via an
+Adobe Fonts kit in `nuxt.config.ts`, set as `--font-display`/`--font-sans` in
+`app/assets/css/main.css`. **The map page is the reference design and every page follows
+it** — `docs/design-system.md` §10 is the spec (§4/§5/§9 there describe removed
+components). In short: `layouts/default.vue` puts `Landschap.vue` (sky + hills) behind
+every page; `AppMenu.vue` (Osmo scaling hamburger, mounted in `app.vue`) is the only
+navigation, fixed top-left, so page bars leave `3.75rem` free on the left; `PaginaKop.vue`
+is the page header. Use the `.sh-*` classes from `main.css` (`.sh-kaart`, `.sh-kop`,
+`.sh-titel`, `.sh-kicker`, `.sh-chip`, `.sh-segment`, `.sh-cta`, `.sh-pil`) instead of
+per-component card styles; lime (`.sh-cta`) is for the single most important action on a
+screen. Nuxt UI is themed to the cream palette via `--ui-*` variables in `main.css` and
+`app.config.ts` (cards are glass, `primary` is ink). The traject colours still live in two
+places (`@theme` tokens and `trajectKleurHex` in `app/utils/kleuren.ts`).
+
+**Klantreis**: a traject's route is a list of `traject_haltes` (titel, dienst, fase
+`verkennen|uitvoeren|afronden`, icoon, volgorde, `afgerond_op`). The *current* halte is the
+first one without `afgerond_op` (`huidigeHalte()` in `useHaltes.ts`). Routes are built from
+templates in `app/utils/route.ts` (`routeSjabloon(diensten)`: fixed start → branding →
+video/foto → website → oplevering/nazorg) by `server/utils/reisroute.ts`'s
+`synchroniseerRoute()`, called from the traject POST/PATCH whenever `diensten` is sent:
+no haltes yet → full template; dienst added → only that dienst's haltes (before the
+afronden-fase, or after existing video/foto haltes); dienst removed → only its not-yet-
+completed haltes go. After creation every halte is freely editable
+(`server/api/haltes/**`, `RouteBewerken`). `/trajecten/[id]` is the klantdossier:
+`reis/ReisRoute.vue` draws the route over the landscape (switchbacks toward the mountains;
+haltes far from "now" collapse to icons when there are >9; a vertical list below 1024px),
+with the client on the left and `reis/HalteKaart.vue` + `reis/ReisLogboek.vue` on the
+right. The logboek is derived (journal entries with `traject_id`, finished tasks, reached
+haltes, past afspraken) — nothing is stored for it. Components in `components/reis/` are
+auto-registered with a `Reis` prefix (`<ReisHalteKaart>`, `<ReisRouteBewerken>`); an
+unprefixed name silently renders nothing.
+
+**UI structure**: `/vandaag` is the day dashboard (je dag / één ding / niet vergeten →
+`VandaagBord` over all trajecten → "Onderweg" reiskaarten → `DoelenOverzicht` →
+weekplanning, priorities and inbox). `/trajecten` shows all routes as `ReisKaart`s, grouped
+by who's aan zet, or as a pijplijn by the fase of the current halte. `TrajectForm.vue` is
+used in slideovers for create and edit and includes the diensten picker.
 
 **Kaart (startscherm, `/`)**: `app/pages/index.vue` is a full-screen map of Utrecht
 (layout `app/layouts/kaart.vue`, no sidebar); the old dashboard moved to
@@ -268,27 +288,3 @@ route, `server/api/kaart/overzicht.get.ts` / `useKaartOverzicht()`. Financiën h
 model yet and says so. Nuxt UI is pinned to light mode in `nuxt.config.ts` (`colorMode`):
 the design only exists in light, and system-dark made inputs and panels dark on cream.
 
-**UI structure**: there is no page-wide `max-w-*` wrapper — sections are full-bleed and
-each puts a `.stuurhut-kolom` inside itself (see `docs/design-system.md` §2).
-`app/pages/index.vue` is the main dashboard, following the concept top to bottom:
-`AppHeaderFoto` → `DoelenOverzicht` (three goal cards that overlap the bottom of the hero;
-goals stay first per the original brief's "Doelen en voortgang zijn het eerste wat je
-ziet") → `VandaagBord` → a full-bleed dark (`bg-stuurhut-ink`) `TrajectenLijst` band → a
-"Plannen & vastleggen" section holding `WeekplanningOverzicht`, `VandaagPrioriteiten` and
-`InboxQuickCapture`. That last section is deliberately outside the concept: those three
-features are still in use, so they were moved below the concept's content rather than
-dropped.
-`VandaagBord.vue` is the dashboard's four-column board (To-do/In progress/Review/Ready)
-over **all** trajecten — the same `subtaken` table as `TakenBord.vue`, just unfiltered by
-traject, with a traject-coloured pill per card. It does not replace
-`VandaagPrioriteiten.vue`; the 3-per-day cap still exists as its own thing further down
-the page.
-`TrajectForm.vue` is a shared form used both for creating and editing a traject (inline
-within `TrajectenLijst.vue`'s expanded `FolderTab`, not a modal) and includes the
-kleur-swatch picker. `app/pages/trajecten/[id].vue` is the per-traject detail page: a
-`SectieTabs` nav (Taken/Meetings/Offertes/Overig) above a content panel that cross-fades
-between them. Taken renders the kanban board from `app/components/TakenBord.vue` (prop:
-`trajectId`); Meetings/Offertes are visual placeholders only (no data model yet); Overig is
-a read-only view of `status`/`eerstvolgendeActie` (editing those stays on the dashboard
-list). `app/pages/ideeen/index.vue` is the ideas workspace. `FocusTimer.vue` is mounted
-globally rather than embedded in a specific page.

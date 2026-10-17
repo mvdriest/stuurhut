@@ -17,19 +17,30 @@ const tijdWeergave = computed(() => {
 </script>
 
 <template>
-  <div class="fixed bottom-4 right-4 z-50">
-    <UButton v-if="state.fase === 'idle'" icon="i-lucide-timer" color="neutral" variant="solid" @click="start()">
-      Start focus (50/10)
-    </UButton>
+  <!-- Zelfde donkere pil als "Preview Dag" op de kaart, rechtsonder op elke pagina. -->
+  <div class="focustimer">
+    <button v-if="state.fase === 'idle'" type="button" class="sh-pil" @click="start()">
+      <span class="text-sm">Focus 50/10</span>
+      <span class="sh-pil__rond"><UIcon name="i-lucide-target" class="size-4" /></span>
+    </button>
 
-    <UCard v-else variant="solid" class="shadow-lg">
-      <div class="flex items-center gap-3">
-        <div class="flex flex-col">
-          <span class="text-xs text-muted">{{ faseLabel }}<template v-if="trajectNaam"> · {{ trajectNaam }}</template></span>
-          <span class="font-display text-2xl leading-none">{{ tijdWeergave }}</span>
-        </div>
-        <UButton icon="i-lucide-square" size="sm" color="error" variant="ghost" @click="stop()" />
-      </div>
-    </UCard>
+    <div v-else class="sh-pil">
+      <span class="flex flex-col leading-tight">
+        <span class="text-[0.7rem] text-white/60">{{ faseLabel }}<template v-if="trajectNaam"> · {{ trajectNaam }}</template></span>
+        <span class="font-display text-xl tabular-nums">{{ tijdWeergave }}</span>
+      </span>
+      <button type="button" class="sh-pil__rond" aria-label="Focus stoppen" @click="stop()">
+        <UIcon name="i-lucide-square" class="size-4" />
+      </button>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.focustimer {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 50;
+}
+</style>

@@ -1,4 +1,5 @@
 import type { TrajectKleur } from '~/utils/kleuren'
+import type { Dienst } from '~/utils/route'
 
 export interface Traject {
   id: string
@@ -20,6 +21,7 @@ export interface Traject {
   contactTelefoon: string | null
   contactEmail: string | null
   contactVoorkeur: string | null
+  diensten: Dienst[]
 }
 
 export function useTrajecten() {

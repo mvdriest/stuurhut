@@ -9,6 +9,7 @@ const route = useRoute()
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
+    <AppMenu v-if="user" />
     <!-- Op de kaart zit de focus-timer in de "Focus Mode"-knop zelf. -->
     <FocusTimer v-if="user && route.meta.layout !== 'kaart'" />
   </UApp>

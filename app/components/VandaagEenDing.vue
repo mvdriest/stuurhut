@@ -84,50 +84,48 @@ async function markeerKlaar() {
 </template>
 
 <style scoped>
+/* De ene belangrijkste kaart van de dag krijgt het limoen van de kaart. */
 .vandaagkaart--accent {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(150deg, oklch(64% 0.18 44) 0%, oklch(74% 0.15 74) 100%);
+  background: var(--color-stuurhut-limoen);
+  color: var(--color-stuurhut-ink);
   border-radius: 1.25rem;
   padding: 1.25rem 1.375rem;
   display: flex;
   flex-direction: column;
   gap: 0.625rem;
   align-items: flex-start;
-  box-shadow: 0 20px 46px rgb(150 80 25 / 0.35);
+  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
 }
 
 .eending__label {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgb(255 255 255 / 0.8);
+  color: rgb(0 0 0 / 0.55);
 }
 
 .eending__dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: oklch(99% 0.04 92);
-  box-shadow: 0 0 12px oklch(96% 0.09 88);
+  background: #7bb33a;
+  box-shadow: 0 0 0 4px rgb(123 179 58 / 0.25);
 }
 
 .eending__titel {
   font-family: var(--font-display);
-  text-transform: uppercase;
   font-size: clamp(1.5rem, 2.4vw, 2rem);
   line-height: 1;
-  color: #fff;
-  text-shadow: 0 2px 14px rgb(20 10 4 / 0.2);
 }
 
 .eending__reden {
   font-size: 0.875rem;
-  font-weight: 600;
-  color: rgb(255 255 255 / 0.9);
+  color: rgb(0 0 0 / 0.65);
 }
 </style>

@@ -371,6 +371,7 @@ export type Database = {
       }
       subtaken: {
         Row: {
+          halte_id: string | null
           created_at: string
           geschatte_duur: number
           id: string
@@ -382,6 +383,7 @@ export type Database = {
           volgorde: number
         }
         Insert: {
+          halte_id?: string | null
           created_at?: string
           geschatte_duur: number
           id?: string
@@ -393,6 +395,7 @@ export type Database = {
           volgorde?: number
         }
         Update: {
+          halte_id?: string | null
           created_at?: string
           geschatte_duur?: number
           id?: string
@@ -481,8 +484,51 @@ export type Database = {
           },
         ]
       }
+      traject_haltes: {
+        Row: {
+          afgerond_op: string | null
+          created_at: string
+          dienst: string
+          fase: string
+          icoon: string
+          id: string
+          streefdatum: string | null
+          titel: string
+          traject_id: string
+          user_id: string
+          volgorde: number
+        }
+        Insert: {
+          afgerond_op?: string | null
+          created_at?: string
+          dienst?: string
+          fase?: string
+          icoon?: string
+          id?: string
+          streefdatum?: string | null
+          titel: string
+          traject_id: string
+          user_id: string
+          volgorde?: number
+        }
+        Update: {
+          afgerond_op?: string | null
+          created_at?: string
+          dienst?: string
+          fase?: string
+          icoon?: string
+          id?: string
+          streefdatum?: string | null
+          titel?: string
+          traject_id?: string
+          user_id?: string
+          volgorde?: number
+        }
+        Relationships: []
+      }
       trajecten: {
         Row: {
+          diensten: string[]
           bedrag_afgesproken: number | null
           bedrag_gefactureerd: number | null
           contact_email: string | null
@@ -504,6 +550,7 @@ export type Database = {
           wacht_op: string | null
         }
         Insert: {
+          diensten?: string[]
           bedrag_afgesproken?: number | null
           bedrag_gefactureerd?: number | null
           contact_email?: string | null
@@ -525,6 +572,7 @@ export type Database = {
           wacht_op?: string | null
         }
         Update: {
+          diensten?: string[]
           bedrag_afgesproken?: number | null
           bedrag_gefactureerd?: number | null
           contact_email?: string | null

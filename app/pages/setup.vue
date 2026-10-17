@@ -32,7 +32,8 @@ async function onSubmit() {
   <div class="flex min-h-screen items-center justify-center p-4">
     <UCard class="w-full max-w-sm">
       <template #header>
-        <h1 class="text-lg font-semibold">Stuurhut instellen</h1>
+        <p class="sh-kicker">Stuurhut</p>
+        <h1 class="sh-titel text-3xl mt-1">Instellen</h1>
         <p class="text-sm text-muted">Maak je enige account aan om te beginnen.</p>
       </template>
 

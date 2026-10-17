@@ -22,9 +22,8 @@
 }
 
 .vandaagkaart__titel {
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  font-size: 1.375rem;
+  font-size: 1.05rem;
+  font-weight: 600;
   color: var(--color-stuurhut-ink);
   opacity: 0.6;
 }
