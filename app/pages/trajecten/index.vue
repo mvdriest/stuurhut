@@ -59,14 +59,7 @@ const pijplijn = computed(() => KOLOMMEN.map((k) => {
   return { ...k, items, waarde }
 }))
 
-const nieuwOpen = ref(false)
-
-async function maakTraject(payload: Record<string, unknown>) {
-  const traject = await $fetch<Traject>('/api/trajecten', { method: 'POST', body: payload })
-  nieuwOpen.value = false
-  await Promise.all([refresh(), refreshHaltes()])
-  await navigateTo(`/trajecten/${traject.id}`)
-}
+const { openNieuwTraject } = useSnelMenu()
 </script>
 
 <template>
@@ -96,7 +89,7 @@ async function maakTraject(payload: Record<string, unknown>) {
         </div>
       </template>
 
-      <button type="button" class="sh-cta !py-2 !pl-4 !pr-2" @click="nieuwOpen = true">
+      <button type="button" class="sh-cta !py-2 !pl-4 !pr-2" @click="openNieuwTraject()">
         <span class="font-semibold text-sm">Nieuw traject</span>
         <span class="sh-cta__pijl !size-9"><UIcon name="i-lucide-plus" class="size-4" /></span>
       </button>
@@ -147,11 +140,6 @@ async function maakTraject(payload: Record<string, unknown>) {
       </div>
     </div>
 
-    <USlideover v-model:open="nieuwOpen" title="Nieuw traject" side="right">
-      <template #body>
-        <TrajectForm submit-label="Reis beginnen" @submit="maakTraject" @cancel="nieuwOpen = false" />
-      </template>
-    </USlideover>
   </div>
 </template>
 

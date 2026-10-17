@@ -2,15 +2,18 @@
 const { items, pending, refresh } = useInbox()
 const { trajecten, refresh: refreshTrajecten } = useTrajecten()
 const { refresh: refreshVandaag } = useVandaag()
+const { refresh: refreshTaken } = useTaken()
+const toast = useToast()
 
 await useAsyncData('inbox-init', () => refresh())
 
 const nieuwTekst = ref('')
-const movingId = ref<string | null>(null)
 const error = ref<Record<string, string>>({})
 
-const trajectOptions = computed(() =>
-  trajecten.value.map(t => ({ label: t.naam, value: t.id }))
+// Laatst aangeraakte trajecten bovenaan; geparkeerde helemaal onderaan.
+const trajectOptions = computed(() => [...trajecten.value]
+  .sort((a, b) => Number(a.status === 'on_hold') - Number(b.status === 'on_hold') || b.updatedAt.localeCompare(a.updatedAt))
+  .map(t => ({ label: t.naam, value: t.id }))
 )
 
 async function vastleggen() {
@@ -39,8 +42,9 @@ async function naarTraject(id: string, trajectId: string) {
   error.value = { ...error.value, [id]: '' }
   try {
     await $fetch(`/api/inbox/${id}/move`, { method: 'POST', body: { target: 'traject', trajectId } })
-    movingId.value = null
-    await Promise.all([refresh(), refreshTrajecten()])
+    await Promise.all([refresh(), refreshTrajecten(), refreshTaken()])
+    const naam = trajecten.value.find(t => t.id === trajectId)?.naam
+    toast.add({ title: `Taak toegevoegd${naam ? ` aan ${naam}` : ''}`, icon: 'i-lucide-check', color: 'success' })
   } catch (err: any) {
     error.value = { ...error.value, [id]: err?.data?.statusMessage || 'Er ging iets mis.' }
   }
@@ -68,22 +72,24 @@ async function naarTraject(id: string, trajectId: string) {
           <span class="flex-1">{{ item.tekst }}</span>
           <div class="flex gap-1 shrink-0">
             <UButton size="sm" variant="soft" @click="naarVandaag(item.id)">Naar vandaag</UButton>
-            <UButton size="sm" variant="soft" color="neutral" @click="movingId = movingId === item.id ? null : item.id">
-              Naar traject
-            </UButton>
+            <!-- Kies een traject en het item wordt daar een taak. Typ om te zoeken. -->
+            <USelectMenu
+              :items="trajectOptions"
+              value-key="value"
+              :model-value="undefined"
+              placeholder="Naar traject"
+              :search-input="{ placeholder: 'Zoek een traject…' }"
+              size="sm"
+              variant="soft"
+              color="neutral"
+              :ui="{ content: 'min-w-56' }"
+              class="w-36"
+              @update:model-value="(val: string) => naarTraject(item.id, val)"
+            >
+              <template #empty>Nog geen trajecten</template>
+            </USelectMenu>
             <UButton icon="i-lucide-trash-2" size="sm" color="error" variant="ghost" @click="verwijderen(item.id)" />
           </div>
-        </div>
-
-        <div v-if="movingId === item.id" class="flex gap-2 items-center">
-          <USelect
-            :items="trajectOptions"
-            value-key="value"
-            placeholder="Kies een traject..."
-            class="w-56"
-            @update:model-value="(val: string) => naarTraject(item.id, val)"
-          />
-          <span v-if="trajectOptions.length === 0" class="text-sm text-muted">Nog geen trajecten aangemaakt.</span>
         </div>
 
         <p v-if="error[item.id]" class="text-sm text-error">{{ error[item.id] }}</p>

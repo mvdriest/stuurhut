@@ -141,10 +141,11 @@ kept even though the Takenbord (below) gives a place for the full, unfiltered ta
 
 **Inbox "move" semantics** (`server/api/inbox/[id]/move.post.ts`): moving an inbox item is
 modeled as a union-typed action, not a generic PATCH — `{ target: 'vandaag' }` inserts a
-new `vandaag_prioriteiten` row for today, `{ target: 'traject', trajectId }` overwrites
-that traject's `eerstvolgendeActie` field. Either way the inbox row is deleted after. This
-is intentionally simple: moving to a traject does not append/history a list of actions, it
-just replaces the "next action" field.
+new `vandaag_prioriteiten` row for today, `{ target: 'traject', trajectId }` inserts a
+`subtaken` row (status `to_do`) on that traject, attached to its current halte (first
+without `afgerond_op`) if there is one. Either way the inbox row is deleted after. It
+deliberately does *not* touch `eerstvolgendeActie` (it used to overwrite it, which lost
+the existing next step).
 
 **AI-weekplanning**: `server/api/weekplanning/genereer.post.ts` gathers the user's
 `dag_blokken` (recurring weekday time blocks, prive/zakelijk), open trajecten, `subtaken`
@@ -266,6 +267,15 @@ right. The logboek is derived (journal entries with `traject_id`, finished tasks
 haltes, past afspraken) — nothing is stored for it. Components in `components/reis/` are
 auto-registered with a `Reis` prefix (`<ReisHalteKaart>`, `<ReisRouteBewerken>`); an
 unprefixed name silently renders nothing.
+
+**Snel invoeren**: `TrajectNieuw.vue` (in the global `TrajectNieuwModal.vue`) only asks
+naam/scope/diensten; a free sentence can be parsed by `POST /api/trajecten/uit-zin`
+(`leesTrajectUitZin()` in `server/utils/ai.ts`, nothing is stored, output validated per
+field). Everything else is filled in inline on the dossier. `SnelMenu.vue` (⌘K, mounted in
+`app.vue`, state in `useSnelMenu.ts`) turns the typed text into a taak/inbox/idee/journal
+entry — linked to the traject when on a dossier — or jumps to a traject/page; when the
+text matches an existing name, navigation is listed above the capture actions so Enter
+jumps rather than creating a task.
 
 **UI structure**: `/vandaag` is the day dashboard (je dag / één ding / niet vergeten →
 `VandaagBord` over all trajecten → "Onderweg" reiskaarten → `DoelenOverzicht` →

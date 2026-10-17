@@ -364,3 +364,71 @@ Vul altijd "transcript" in. Vul alleen het object in dat bij het gekozen "type" 
 
   return JSON.parse(text)
 }
+
+// --- Traject uit één zin ---------------------------------------------------------------
+
+export interface TrajectConcept {
+  naam: string | null
+  scope: 'zakelijk' | 'prive' | null
+  diensten: string[]
+  contactpersoon: string | null
+  contactTelefoon: string | null
+  contactEmail: string | null
+  bedragAfgesproken: number | null
+  eerstvolgendeActie: string | null
+  streefdatum: string | null
+}
+
+const trajectConceptSchema = {
+  type: Type.OBJECT,
+  properties: {
+    naam: { type: Type.STRING, nullable: true, description: 'Korte naam: de klant, het bedrijf of het project' },
+    scope: { type: Type.STRING, enum: ['zakelijk', 'prive'], nullable: true },
+    diensten: { type: Type.ARRAY, items: { type: Type.STRING, enum: ['branding', 'website', 'video', 'foto'] } },
+    contactpersoon: { type: Type.STRING, nullable: true },
+    contactTelefoon: { type: Type.STRING, nullable: true },
+    contactEmail: { type: Type.STRING, nullable: true },
+    bedragAfgesproken: { type: Type.NUMBER, nullable: true, description: 'In euro, alleen als een bedrag genoemd wordt' },
+    eerstvolgendeActie: { type: Type.STRING, nullable: true },
+    streefdatum: { type: Type.STRING, nullable: true, description: 'YYYY-MM-DD, alleen als een deadline genoemd wordt' }
+  },
+  required: ['diensten']
+}
+
+export async function leesTrajectUitZin(zin: string): Promise<TrajectConcept> {
+  const ai = getClient()
+
+  const prompt = `Je helpt de gebruiker van de planning-app Stuurhut een nieuw traject aan te maken. Een traject is een klantopdracht (zakelijk) of een persoonlijk project (privé). De gebruiker is zelfstandig ontwerper/maker en levert de diensten branding, website, video en foto.
+
+VANDAAG IS: ${today()} (YYYY-MM-DD)
+
+BESCHRIJVING VAN DE GEBRUIKER:
+"${zin}"
+
+Haal hieruit wat er letterlijk of duidelijk in staat, en verzin niets:
+- "naam": de klant, het bedrijf of het project, kort (zonder woorden als "nieuwe klant").
+- "scope": "zakelijk" bij een klant of betaalde opdracht, "prive" bij iets persoonlijks; null als het niet duidelijk is.
+- "diensten": welke van branding/website/video/foto er genoemd worden (logo of huisstijl = branding, fotografie/fotoshoot = foto, film/videoclip = video). Lege lijst als er geen genoemd worden.
+- "contactpersoon", "contactTelefoon", "contactEmail": alleen als genoemd.
+- "bedragAfgesproken": het genoemde bedrag in euro als getal (bijv. "2,5k" = 2500).
+- "eerstvolgendeActie": de eerstvolgende concrete stap als die genoemd wordt (bijv. "offerte sturen").
+- "streefdatum": een genoemde deadline, als YYYY-MM-DD relatief aan vandaag.
+
+Laat alles wat niet genoemd wordt op null. Geef alleen geldige JSON terug volgens het schema.`
+
+  const response = await ai.models.generateContent({
+    model: MODEL,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: trajectConceptSchema
+    }
+  })
+
+  const text = response.text
+  if (!text) {
+    throw createError({ statusCode: 502, statusMessage: 'De AI kon de beschrijving niet lezen.' })
+  }
+
+  return JSON.parse(text)
+}
