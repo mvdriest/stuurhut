@@ -19,6 +19,8 @@ interface Extras {
 
 type Concept = Extras & { naam: string | null, scope: 'zakelijk' | 'prive' | null, diensten: Dienst[] }
 
+const props = defineProps<{ startZin?: string }>()
+
 const emit = defineEmits<{
   submit: [payload: Partial<Extras> & { naam: string, scope: 'zakelijk' | 'prive', diensten: Dienst[], kleur: TrajectKleur }]
   cancel: []
@@ -46,7 +48,7 @@ const kleur = computed<TrajectKleur>(() => {
 
 // --- Beschrijven in één zin -----------------------------------------------------------
 
-const zin = ref('')
+const zin = ref(props.startZin ?? '')
 const leest = ref(false)
 
 async function vulIn() {
@@ -63,6 +65,19 @@ async function vulIn() {
     leest.value = false
   }
 }
+
+// Vanuit het snelmenu met een getypte zin: meteen laten invullen. Eén woord of twee is
+// waarschijnlijk gewoon de naam; dan is de AI niet nodig.
+onMounted(() => {
+  const z = props.startZin?.trim() ?? ''
+  if (!z) return
+  if (z.split(/\s+/).length <= 2) {
+    naam.value = z
+    zin.value = ''
+  } else {
+    vulIn()
+  }
+})
 
 // Enter vult in, Shift+Enter is een nieuwe regel.
 function zinToets(e: KeyboardEvent) {

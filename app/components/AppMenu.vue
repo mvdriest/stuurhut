@@ -5,6 +5,7 @@
 // zijn die van het origineel; alleen de toggle-logica is naar Vue verhuisd.
 const route = useRoute()
 const supabase = useSupabaseClient()
+const { open: snelMenuOpen } = useSnelMenu()
 
 const status = ref<'active' | 'not-active'>('not-active')
 
@@ -59,6 +60,9 @@ async function uitloggen() {
             </NuxtLink>
           </li>
         </ul>
+        <button type="button" class="hamburger-nav__uit" @click="sluit(); snelMenuOpen = true">
+          <UIcon name="i-lucide-search" class="size-4" /> Snelmenu <UKbd value="meta" size="sm" /><UKbd value="K" size="sm" />
+        </button>
         <button type="button" class="hamburger-nav__uit" @click="uitloggen">
           <UIcon name="i-lucide-log-out" class="size-4" /> Uitloggen
         </button>
