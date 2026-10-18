@@ -623,11 +623,7 @@ export type Database = {
           diensten: string[]
           bedrag_afgesproken: number | null
           bedrag_gefactureerd: number | null
-          contact_email: string | null
           contact_id: string | null
-          contact_telefoon: string | null
-          contact_voorkeur: string | null
-          contactpersoon: string | null
           created_at: string
           doel_id: string | null
           eerstvolgende_actie: string | null
@@ -647,11 +643,7 @@ export type Database = {
           diensten?: string[]
           bedrag_afgesproken?: number | null
           bedrag_gefactureerd?: number | null
-          contact_email?: string | null
           contact_id?: string | null
-          contact_telefoon?: string | null
-          contact_voorkeur?: string | null
-          contactpersoon?: string | null
           created_at?: string
           doel_id?: string | null
           eerstvolgende_actie?: string | null
@@ -671,11 +663,7 @@ export type Database = {
           diensten?: string[]
           bedrag_afgesproken?: number | null
           bedrag_gefactureerd?: number | null
-          contact_email?: string | null
           contact_id?: string | null
-          contact_telefoon?: string | null
-          contact_voorkeur?: string | null
-          contactpersoon?: string | null
           created_at?: string
           doel_id?: string | null
           eerstvolgende_actie?: string | null

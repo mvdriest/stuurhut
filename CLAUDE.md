@@ -284,10 +284,8 @@ email, … } | null`), resolved by `koppelKlantEnContact()`: an existing email i
 than duplicated, and a new zakelijk traject without a chosen klant gets the klant with the
 same name (case-insensitive). `leerDomein()` adds a contact's business email domain to
 `klanten.domeinen` (free-mail providers like gmail.com are skipped) — the future mail
-integration matches on those domains. The old `trajecten.contactpersoon`/`contact_email`/
-`contact_telefoon`/`contact_voorkeur` columns were migrated into these tables and are no
-longer read or written; they only remain so the deployed pre-CRM build keeps working until
-this lands, and can then be dropped.
+integration matches on those domains. The old free-text contact columns on `trajecten`
+(`contactpersoon`, `contact_email`, …) were migrated into these tables and dropped.
 
 **Snel invoeren**: `TrajectNieuw.vue` (in the global `TrajectNieuwModal.vue`) only asks
 naam/scope/diensten (contact details the AI recognizes are sent as `contact`); a free sentence can be parsed by `POST /api/trajecten/uit-zin`
