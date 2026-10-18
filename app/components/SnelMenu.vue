@@ -13,6 +13,7 @@ const { refresh: refreshInbox } = useInbox()
 const { refresh: refreshTaken } = useTaken()
 const { refresh: refreshIdeeen } = useIdeeen()
 const { refresh: refreshJournal } = useJournal()
+const { klanten, contactVan, refresh: refreshKlanten } = useKlanten()
 
 const zoekterm = ref('')
 
@@ -31,6 +32,7 @@ watch(open, async (isOpen) => {
   }
   // De trajectenlijst kan leeg zijn als je op een pagina zit die hem niet laadt.
   if (!trajecten.value.length) await refreshTrajecten()
+  if (!klanten.value.length) await refreshKlanten()
 })
 
 const huidigTraject = computed(() => {
@@ -107,6 +109,7 @@ const PAGINAS = [
   { label: 'Vandaag', icon: 'i-lucide-sun', to: '/vandaag' },
   { label: 'Agenda', icon: 'i-lucide-calendar', to: '/agenda' },
   { label: 'Trajecten', icon: 'i-lucide-route', to: '/trajecten' },
+  { label: 'Klanten', icon: 'i-lucide-building-2', to: '/klanten' },
   { label: 'Journal', icon: 'i-lucide-notebook-pen', to: '/journal' },
   { label: 'Ideeën', icon: 'i-lucide-lightbulb', to: '/ideeen' }
 ]
@@ -119,9 +122,20 @@ const groepen = computed<CommandPaletteGroup<CommandPaletteItem>[]>(() => {
     label: 'Trajecten',
     items: trajecten.value.map(t => ({
       label: t.naam,
-      suffix: t.contactpersoon ?? undefined,
+      suffix: contactVan(t.contactId)?.naam,
       icon: 'i-lucide-map-pin',
       onSelect: () => { open.value = false; navigateTo(`/trajecten/${t.id}`) }
+    }))
+  },
+  {
+    id: 'klanten',
+    label: 'Klanten',
+    // Ook vindbaar op de naam van een contactpersoon.
+    items: klanten.value.map(k => ({
+      label: k.naam,
+      suffix: k.contacten.map(c => c.naam).join(', ') || undefined,
+      icon: 'i-lucide-building-2',
+      onSelect: () => { open.value = false; navigateTo(`/klanten/${k.id}`) }
     }))
   },
   {
@@ -133,7 +147,7 @@ const groepen = computed<CommandPaletteGroup<CommandPaletteItem>[]>(() => {
   // Typ je een naam die bestaat, dan wil je daar waarschijnlijk heen: dan staat de
   // treffer bovenaan en springt Enter ernaartoe in plaats van een taak "TP Zorg" te maken.
   const term = tekst.value.toLowerCase()
-  const naamTreffer = term && [...trajecten.value.map(t => t.naam), ...PAGINAS.map(p => p.label)]
+  const naamTreffer = term && [...trajecten.value.map(t => t.naam), ...klanten.value.map(k => k.naam), ...PAGINAS.map(p => p.label)]
     .some(naam => naam.toLowerCase().includes(term))
   return naamTreffer ? [...navigatie, vastleggen] : [vastleggen, ...navigatie]
 })

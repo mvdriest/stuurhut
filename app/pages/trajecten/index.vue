@@ -13,8 +13,9 @@ definePageMeta({
 const { trajecten, pending, refresh } = useTrajecten()
 const { taken, refresh: refreshTaken } = useTaken()
 const { refresh: refreshHaltes, routeVan } = useHaltes()
+const { refresh: refreshKlanten } = useKlanten()
 
-await useAsyncData('trajecten-overzicht-init', () => Promise.all([refresh(), refreshTaken(), refreshHaltes()]))
+await useAsyncData('trajecten-overzicht-init', () => Promise.all([refresh(), refreshTaken(), refreshHaltes(), refreshKlanten()]))
 
 const scope = ref<'alle' | 'zakelijk' | 'prive'>('alle')
 const weergave = ref<'reizen' | 'pijplijn'>('reizen')

@@ -15,17 +15,28 @@ const bodySchema = z.object({
   bedragAfgesproken: z.number().nullable().optional(),
   bedragGefactureerd: z.number().nullable().optional(),
   financieelNotitie: z.string().nullable().optional(),
-  contactpersoon: z.string().nullable().optional(),
-  contactTelefoon: z.string().nullable().optional(),
-  contactEmail: z.string().nullable().optional(),
-  contactVoorkeur: z.string().nullable().optional(),
   diensten: z.array(z.enum(DIENSTEN)).optional()
-})
+}).merge(koppelingSchema)
 
 export default defineEventHandler(async (event) => {
   const { supabase, user } = await requireSupabaseUser(event)
   const id = requireRouterParam(event, 'id')
   const updates = await readValidatedBody(event, bodySchema.parse)
+  // Een nieuw contact zonder klantkeuze hoort bij de klant die het traject al heeft.
+  let koppeling = updates
+  if (updates.contact && updates.klantId === undefined && !updates.klantNaam) {
+    const { data: huidig } = await supabase.from('trajecten').select('klant_id').eq('id', id).single()
+    koppeling = { ...updates, klantId: huidig?.klant_id ?? undefined }
+  }
+  const { klantId, contactId: gekoppeld } = await koppelKlantEnContact(supabase, user.id, koppeling)
+
+  // Andere klant gekozen: een reisgenoot van de vorige klant past daar niet meer bij.
+  let contactId = gekoppeld
+  if (klantId && contactId === undefined) {
+    const { data: huidig } = await supabase.from('trajecten').select('contact:contacten(klant_id)').eq('id', id).single()
+    const contactKlant = (huidig?.contact as { klant_id: string | null } | null)?.klant_id
+    if (contactKlant && contactKlant !== klantId) contactId = null
+  }
 
   let vorigeDiensten: Dienst[] = []
   if (updates.diensten) {
@@ -47,10 +58,8 @@ export default defineEventHandler(async (event) => {
       bedrag_afgesproken: updates.bedragAfgesproken,
       bedrag_gefactureerd: updates.bedragGefactureerd,
       financieel_notitie: updates.financieelNotitie,
-      contactpersoon: updates.contactpersoon,
-      contact_telefoon: updates.contactTelefoon,
-      contact_email: updates.contactEmail,
-      contact_voorkeur: updates.contactVoorkeur,
+      klant_id: klantId,
+      contact_id: contactId,
       diensten: updates.diensten,
       updated_at: new Date().toISOString()
     })

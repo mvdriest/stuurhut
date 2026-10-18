@@ -17,10 +17,8 @@ export interface Traject {
   bedragAfgesproken: number | null
   bedragGefactureerd: number | null
   financieelNotitie: string | null
-  contactpersoon: string | null
-  contactTelefoon: string | null
-  contactEmail: string | null
-  contactVoorkeur: string | null
+  klantId: string | null
+  contactId: string | null
   diensten: Dienst[]
 }
 

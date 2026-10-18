@@ -31,8 +31,9 @@ const datum = computed(() => formatDatumNl(nu.value))
 const { trajecten, refresh: refreshTrajecten } = useTrajecten()
 const { taken, refresh: refreshTaken } = useTaken()
 const { refresh: refreshHaltes, routeVan } = useHaltes()
+const { refresh: refreshKlanten } = useKlanten()
 
-await useAsyncData('vandaag-onderweg-init', () => Promise.all([refreshTrajecten(), refreshTaken(), refreshHaltes()]))
+await useAsyncData('vandaag-onderweg-init', () => Promise.all([refreshTrajecten(), refreshTaken(), refreshHaltes(), refreshKlanten()]))
 
 // Lopende reizen, de meest recent aangeraakte eerst (de API sorteert al op updated_at).
 const onderweg = computed(() => trajecten.value
