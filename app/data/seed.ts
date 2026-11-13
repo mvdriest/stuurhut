@@ -78,3 +78,54 @@ export function seedAssignments(clients: Client[], projects: Project[]): Assignm
   }
   return notionQuery().results.map((page, i) => ({ ...mapNotionPage(page, lookup), order: i }))
 }
+
+/** De kolommen van het bord als Supabase de bron is (subtaken.status). */
+export const SUPABASE_BOARD: AppState['board'] = [
+  { name: 'Te doen', color: 'gray', kind: 'todo' },
+  { name: 'Bezig', color: 'blue', kind: 'doing', wip: 3 },
+  { name: 'Wacht op klant', color: 'orange', kind: 'waiting' },
+  { name: 'Review', color: 'purple', kind: 'review' },
+  { name: 'Klaar', color: 'green', kind: 'done' },
+]
+
+/** Een lege start voor je echte data. Wat in Supabase staat, komt hier bovenop. */
+export function createEmpty(): AppState {
+  const t = todayISO()
+  const wd = fromISO(t).getDay()
+  const monday = addDays(t, wd === 0 ? -6 : 1 - wd)
+  return {
+    version: STATE_VERSION,
+    seededOn: t,
+    tasks: [],
+    events: [],
+    inbox: [],
+    clients: [],
+    projects: [],
+    opportunities: [],
+    transactions: [],
+    invoices: [],
+    subscriptions: [],
+    rhythm: [],
+    routines: [],
+    goals: [],
+    chat: [],
+    rituals: { dayStart: {}, dayEnd: {}, weekReview: {} },
+    timeEntries: [],
+    quotes: [],
+    life: [],
+    assignments: [],
+    board: SUPABASE_BOARD,
+    sync: { source: 'supabase', lastPull: new Date().toISOString(), pending: 0 },
+    checkins: {},
+    evenings: {},
+    suggestionStatus: {},
+    gapResolved: {},
+    prefs: {
+      morningFocus: false,
+      reminders: {},
+      workHours: { days: [1, 2, 3, 4, 5], start: '08:30', end: '17:30' },
+      tax: { vat: 0.21, reserve: 0.3, setAside: {} },
+      sleep: { startWake: '08:00', goalWake: '08:00', startedOn: monday, stepMin: 15, needH: 8, windDownMin: 60, weeks: { [monday]: { wake: '08:00', decision: 'start' } }, morning: { firstBlock: false, offsetMin: 45, blockMin: 90 } },
+    },
+  }
+}

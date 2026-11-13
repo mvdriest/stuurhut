@@ -39,13 +39,24 @@ const testdataSource: AssignmentSource = {
  *   archive: (id, restore) => $fetch(`/api/notion/opdrachten/${id}`, { method: 'PATCH', body: { in_trash: !restore } }),
  * }
  */
-const source: AssignmentSource = testdataSource
+/**
+ * Supabase (subtaken): de opslag zelf loopt via useSync(), die elke wijziging in de state
+ * terugschrijft. Hier hoeft de bron dus alleen opnieuw op te halen.
+ */
+const supabaseSource: AssignmentSource = {
+  label: 'Supabase',
+  pull: async () => { await useSync().reload(); return null },
+  push: async () => {},
+  create: async () => '',
+  archive: async () => {},
+}
 
 // ---------- Het bord ----------
 const clientFilter = ref<string | null>(null)
 
 export function useAssignments() {
-  const { state } = useStore()
+  const { state, mode } = useStore()
+  const source = mode.value === 'demo' ? testdataSource : supabaseSource
   const tasks = useTasks()
   const cal = useCalendar()
   const clients = useClients()
@@ -146,7 +157,7 @@ export function useAssignments() {
     state.value.assignments.push(a)
     const created = state.value.assignments[state.value.assignments.length - 1]!
     state.value.sync.pending++
-    try { created.notionId = await source.create(toNotionPatch(data, { client: id => clients.byId(id)?.notionId })) }
+    try { created.notionId = (await source.create(toNotionPatch(data, { client: id => clients.byId(id)?.notionId }))) || created.id }
     finally { state.value.sync.pending-- }
     return created
   }

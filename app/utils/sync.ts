@@ -1,0 +1,239 @@
+// Vertaling tussen de V2-state en Supabase.
+//
+// Twee soorten opslag:
+// 1. Dingen die V1 en de Telegram-bot ook kennen, staan in hun eigen tabel
+//    (klanten, trajecten, subtaken, afspraken, inbox_items, doelen). Wat V2 extra
+//    weet, staat in de kolom `extra` van die rij.
+// 2. Al het andere staat in `v2_items`: één rij per ding (collection + item_id),
+//    of één rij per instelling (collection '_state').
+import type { AppState, Assignment, CalendarEvent, Client, Goal, InboxItem, Project } from '~/types'
+import type { Database, Json } from '~/types/database.types'
+
+type T = Database['public']['Tables']
+export type TableName = 'klanten' | 'trajecten' | 'subtaken' | 'afspraken' | 'inbox_items' | 'doelen'
+type Row<N extends keyof T> = T[N]['Row']
+
+// ---------- Bord ↔ subtaken.status ----------
+const STATUS_TO_DB: Record<string, string> = { 'Te doen': 'to_do', 'Bezig': 'bezig', 'Wacht op klant': 'wacht', 'Review': 'review', 'Klaar': 'klaar' }
+const DB_TO_STATUS: Record<string, string> = Object.fromEntries(Object.entries(STATUS_TO_DB).map(([k, v]) => [v, k]))
+
+/** Alles behalve de genoemde velden, voor de kolom `extra`. */
+function rest<O extends object>(o: O, keys: (keyof O)[]): Json {
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(o)) if (!keys.includes(k as keyof O) && v !== undefined) out[k] = v
+  return JSON.parse(JSON.stringify(out)) as Json
+}
+const ex = <O>(j: Json): Partial<O> => (j && typeof j === 'object' && !Array.isArray(j) ? j : {}) as Partial<O>
+const hhmm = (t: string) => t.slice(0, 5)
+const TINTS: Client['tint'][] = ['sea', 'green', 'copper', 'sand']
+const tintFor = (id: string) => TINTS[[...id].reduce((s, c) => s + c.charCodeAt(0), 0) % TINTS.length]!
+
+export interface Loaded {
+  klanten: Row<'klanten'>[]
+  contacten: Row<'contacten'>[]
+  trajecten: Row<'trajecten'>[]
+  subtaken: Row<'subtaken'>[]
+  afspraken: Row<'afspraken'>[]
+  inbox_items: Row<'inbox_items'>[]
+  doelen: Row<'doelen'>[]
+  doel_mijlpalen: Row<'doel_mijlpalen'>[]
+  v2_items: Row<'v2_items'>[]
+}
+
+// ---------- Gekoppelde tabellen ----------
+export interface Mapped<K extends keyof AppState, I extends { id: string }> {
+  key: K
+  table: TableName
+  toRow: (item: I) => Record<string, unknown>
+}
+
+export const MAPPED = [
+  {
+    key: 'clients',
+    table: 'klanten',
+    toRow: (c: Client) => ({ id: c.id, naam: c.name, extra: rest(c, ['id', 'name']) }),
+  } satisfies Mapped<'clients', Client>,
+  {
+    key: 'projects',
+    table: 'trajecten',
+    toRow: (p: Project) => ({ id: p.id, naam: p.name, klant_id: p.clientId || null, bedrag_afgesproken: p.budget, extra: rest(p, ['id', 'name', 'clientId', 'budget']) }),
+  } satisfies Mapped<'projects', Project>,
+  {
+    key: 'assignments',
+    table: 'subtaken',
+    toRow: (a: Assignment) => {
+      const status = STATUS_TO_DB[a.status] ?? 'to_do'
+      return {
+        id: a.id,
+        tekst: a.title,
+        status,
+        traject_id: a.projectId ?? null,
+        geschatte_duur: Math.max(5, Math.round((a.estimateH ?? 1) * 60)),
+        volgorde: a.order,
+        klaar_op: status === 'klaar' ? `${a.statusSince}T12:00:00Z` : null,
+        extra: rest(a, ['id', 'title', 'status', 'projectId', 'order']),
+      }
+    },
+  } satisfies Mapped<'assignments', Assignment>,
+  {
+    key: 'events',
+    table: 'afspraken',
+    toRow: (e: CalendarEvent) => ({
+      id: e.id,
+      titel: e.title,
+      datum: e.date,
+      start_tijd: e.start,
+      eind_tijd: e.end,
+      categorie: e.domain === 'prive' ? 'prive' : e.clientId ? 'klantwerk' : 'eigen_werk',
+      extra: rest(e, ['id', 'title', 'date', 'start', 'end']),
+    }),
+  } satisfies Mapped<'events', CalendarEvent>,
+  {
+    key: 'inbox',
+    table: 'inbox_items',
+    toRow: (i: InboxItem) => ({ id: i.id, tekst: i.text, created_at: i.createdAt, extra: rest(i, ['id', 'text', 'createdAt']) }),
+  } satisfies Mapped<'inbox', InboxItem>,
+  {
+    key: 'goals',
+    table: 'doelen',
+    toRow: (g: Goal) => ({ id: g.id, titel: g.title, extra: rest(g, ['id', 'title']) }),
+  } satisfies Mapped<'goals', Goal>,
+] as const
+
+/** In deze volgorde opslaan (verwijzingen eerst), verwijderen in omgekeerde volgorde. */
+export const MAPPED_KEYS = MAPPED.map(m => m.key)
+
+// ---------- Overige V2-onderdelen in v2_items ----------
+/** Lijsten: één rij per ding. Ritme heeft geen id, daar is de datum de sleutel. */
+export const ITEM_LISTS = ['tasks', 'opportunities', 'transactions', 'invoices', 'subscriptions', 'rhythm', 'routines', 'chat', 'timeEntries', 'quotes', 'life'] as const
+/** Losse onderdelen: één rij per onderdeel, collection '_state'. */
+export const SINGLES = ['rituals', 'checkins', 'evenings', 'suggestionStatus', 'gapResolved', 'prefs'] as const
+
+type ListKey = typeof ITEM_LISTS[number]
+export const itemId = (key: ListKey, item: unknown) =>
+  key === 'rhythm' ? (item as { date: string }).date : (item as { id: string }).id
+
+// ---------- Van Supabase naar de state ----------
+export function fromSupabase(d: Loaded, base: AppState): AppState {
+  const s = base
+  const trajectKlant = new Map(d.trajecten.map(t => [t.id, t.klant_id]))
+  const contactVan = new Map<string, string>()
+  for (const c of d.contacten) if (c.klant_id && !contactVan.has(c.klant_id)) contactVan.set(c.klant_id, c.naam)
+  const lopend = new Set(d.trajecten.filter(t => t.status !== 'on_hold').map(t => t.klant_id))
+
+  s.clients = d.klanten.map((k) => {
+    const x = ex<Client>(k.extra)
+    return {
+      ...x,
+      id: k.id,
+      name: k.naam,
+      contact: x.contact ?? contactVan.get(k.id) ?? '',
+      sector: x.sector ?? '',
+      status: x.status ?? (lopend.has(k.id) ? 'lopend' : 'lead'),
+      tint: x.tint ?? tintFor(k.id),
+      nextStep: x.nextStep ?? '',
+      nextStepDurationMin: x.nextStepDurationMin ?? 30,
+      commitments: x.commitments ?? [],
+      timeline: x.timeline ?? [],
+    }
+  })
+
+  // V2 kent alleen projecten bij een klant. Trajecten zonder klant blijven in Supabase staan.
+  s.projects = d.trajecten.filter(t => t.klant_id).map((t) => {
+    const x = ex<Project>(t.extra)
+    return {
+      ...x,
+      id: t.id,
+      clientId: t.klant_id!,
+      name: t.naam,
+      status: x.status ?? (t.status === 'on_hold' ? 'afgerond' : 'lopend'),
+      progress: x.progress ?? 0,
+      budget: Number(t.bedrag_afgesproken ?? 0),
+      hourlyRate: x.hourlyRate ?? 85,
+      billedHours: x.billedHours ?? 0,
+    }
+  })
+
+  s.assignments = d.subtaken.map((r) => {
+    const x = ex<Assignment>(r.extra)
+    const klant = r.traject_id ? trajectKlant.get(r.traject_id) : undefined
+    return {
+      ...x,
+      id: r.id,
+      notionId: x.notionId || r.id,
+      title: r.tekst,
+      status: DB_TO_STATUS[r.status] ?? 'Te doen',
+      projectId: r.traject_id ?? undefined,
+      clientId: klant ?? x.clientId,
+      priority: x.priority ?? 'normaal',
+      estimateH: x.estimateH ?? r.geschatte_duur / 60,
+      tags: x.tags ?? [],
+      statusSince: x.statusSince ?? (r.klaar_op ?? r.created_at).slice(0, 10),
+      order: r.volgorde,
+    }
+  })
+
+  s.events = d.afspraken.map((r) => {
+    const x = ex<CalendarEvent>(r.extra)
+    const klant = r.traject_id ? trajectKlant.get(r.traject_id) : undefined
+    return {
+      ...x,
+      id: r.id,
+      title: r.titel,
+      date: r.datum,
+      start: hhmm(r.start_tijd),
+      end: hhmm(r.eind_tijd),
+      clientId: klant ?? x.clientId,
+      domain: x.domain ?? (r.categorie === 'prive' ? 'prive' : 'zakelijk'),
+    }
+  })
+
+  s.inbox = d.inbox_items.map(r => ({ ...ex<InboxItem>(r.extra), id: r.id, text: r.tekst, createdAt: r.created_at }))
+
+  s.goals = d.doelen.filter(r => r.status === 'actief').map((r) => {
+    const x = ex<Goal>(r.extra)
+    const stappen = d.doel_mijlpalen.filter(m => m.doel_id === r.id).sort((a, b) => a.volgorde - b.volgorde)
+    // Doelen uit V1 hebben mijlpalen: die bepalen de voortgang.
+    const mijlpaal = stappen.length && (!x.kind || x.kind === 'mijlpaal')
+    return {
+      kind: 'mijlpaal',
+      period: r.deadline ? `voor ${r.deadline}` : '',
+      link: '',
+      ...x,
+      id: r.id,
+      title: r.titel,
+      current: mijlpaal ? stappen.filter(m => m.afgerond).length : (x.current ?? 0),
+      target: mijlpaal ? stappen.length : (x.target ?? 1),
+      steps: mijlpaal ? stappen.map(m => m.titel) : x.steps,
+    } as Goal
+  })
+
+  const rec = s as unknown as Record<string, unknown>
+  for (const key of ITEM_LISTS) {
+    const rows = d.v2_items.filter(r => r.collection === key)
+    rec[key] = rows.map(r => r.data)
+  }
+  if (s.rhythm.length) s.rhythm.sort((a, b) => a.date.localeCompare(b.date))
+  if (s.chat.length) s.chat.sort((a, b) => a.at.localeCompare(b.at))
+  for (const r of d.v2_items.filter(r => r.collection === '_state')) {
+    if ((SINGLES as readonly string[]).includes(r.item_id)) rec[r.item_id] = r.data
+  }
+  return s
+}
+
+// ---------- Momentopname: wat er nu in Supabase staat ----------
+/** Per onderdeel: id → JSON van de rij. Zo zie je wat er veranderd is. */
+export type Snapshot = Map<string, Map<string, string>>
+
+export function snapshot(s: AppState): Snapshot {
+  const snap: Snapshot = new Map()
+  for (const m of MAPPED) {
+    const toRow = m.toRow as (i: unknown) => Record<string, unknown>
+    snap.set(m.key, new Map((s[m.key] as { id: string }[]).map(i => [i.id, JSON.stringify(toRow(i))])))
+  }
+  for (const key of ITEM_LISTS) {
+    snap.set(key, new Map((s[key] as unknown[]).map(i => [itemId(key, i), JSON.stringify(i)])))
+  }
+  snap.set('_state', new Map(SINGLES.map(k => [k, JSON.stringify(s[k])])))
+  return snap
+}

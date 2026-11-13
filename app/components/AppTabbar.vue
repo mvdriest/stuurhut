@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const route = useRoute()
-const { reset } = useStore()
+const account = useAccount()
 const editor = useEditor()
 const { count } = useInbox()
 const toast = useToast()
@@ -11,14 +11,6 @@ const isActive = (to: string) => (to === '/' ? route.path === '/' : route.path.s
 const moreActive = computed(() => extra.some(i => isActive(i.to)))
 watch(() => route.fullPath, () => { more.value = false })
 
-function onReset() {
-  if (window.confirm('Testdata terugzetten? Alles wat je hebt aangepast verdwijnt.')) {
-    reset()
-    more.value = false
-    toast.push({ text: 'Testdata staat weer klaar.' })
-    navigateTo('/')
-  }
-}
 </script>
 
 <template>
@@ -45,9 +37,17 @@ function onReset() {
           <Icon name="tabler:clock" class="size-5" />
           Werktijden
         </button>
-        <button type="button" class="flex min-h-12 w-full items-center gap-3 rounded-[14px] px-3 text-[15px] font-medium text-muted" @click="onReset">
+        <button v-if="account.mode.value === 'demo'" type="button" class="flex min-h-12 w-full items-center gap-3 rounded-[14px] px-3 text-[15px] font-medium text-muted" @click="more = false; account.resetDemo()">
           <Icon name="tabler:refresh" class="size-5" />
           Zet testdata terug
+        </button>
+        <button type="button" class="flex min-h-12 w-full items-center gap-3 rounded-[14px] px-3 text-[15px] font-medium" :class="account.mode.value === 'demo' ? 'text-copper' : 'text-muted'" @click="more = false; account.toggleDemo()">
+          <Icon :name="account.mode.value === 'demo' ? 'tabler:arrow-left' : 'tabler:player-play'" class="size-5" />
+          {{ account.mode.value === 'demo' ? 'Terug naar mijn data' : 'Bekijk de demo' }}
+        </button>
+        <button v-if="account.mode.value === 'echt'" type="button" class="flex min-h-12 w-full items-center gap-3 rounded-[14px] px-3 text-[15px] font-medium text-muted" @click="more = false; account.logout()">
+          <Icon name="tabler:logout" class="size-5" />
+          Uitloggen
         </button>
       </div>
     </Transition>

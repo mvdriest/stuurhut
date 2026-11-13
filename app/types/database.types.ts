@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       afspraken: {
         Row: {
+          extra: Json
           categorie: string
           created_at: string
           datum: string
@@ -27,6 +28,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          extra?: Json
           categorie: string
           created_at?: string
           datum: string
@@ -35,9 +37,10 @@ export type Database = {
           start_tijd: string
           titel: string
           traject_id?: string | null
-          user_id: string
+          user_id?: string
         }
         Update: {
+          extra?: Json
           categorie?: string
           created_at?: string
           datum?: string
@@ -187,6 +190,7 @@ export type Database = {
       }
       doelen: {
         Row: {
+          extra: Json
           created_at: string
           deadline: string | null
           id: string
@@ -198,6 +202,7 @@ export type Database = {
           volgorde: number
         }
         Insert: {
+          extra?: Json
           created_at?: string
           deadline?: string | null
           id?: string
@@ -205,10 +210,11 @@ export type Database = {
           status?: string
           titel: string
           updated_at?: string
-          user_id: string
+          user_id?: string
           volgorde?: number
         }
         Update: {
+          extra?: Json
           created_at?: string
           deadline?: string | null
           id?: string
@@ -362,18 +368,21 @@ export type Database = {
       }
       inbox_items: {
         Row: {
+          extra: Json
           created_at: string
           id: string
           tekst: string
           user_id: string
         }
         Insert: {
+          extra?: Json
           created_at?: string
           id?: string
           tekst: string
-          user_id: string
+          user_id?: string
         }
         Update: {
+          extra?: Json
           created_at?: string
           id?: string
           tekst?: string
@@ -421,6 +430,7 @@ export type Database = {
       }
       klanten: {
         Row: {
+          extra: Json
           adres: string | null
           btw: string | null
           created_at: string
@@ -434,6 +444,7 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          extra?: Json
           adres?: string | null
           btw?: string | null
           created_at?: string
@@ -443,10 +454,11 @@ export type Database = {
           naam: string
           notities?: string | null
           updated_at?: string
-          user_id: string
+          user_id?: string
           website?: string | null
         }
         Update: {
+          extra?: Json
           adres?: string | null
           btw?: string | null
           created_at?: string
@@ -463,6 +475,7 @@ export type Database = {
       }
       subtaken: {
         Row: {
+          extra: Json
           halte_id: string | null
           created_at: string
           geschatte_duur: number
@@ -475,18 +488,20 @@ export type Database = {
           volgorde: number
         }
         Insert: {
+          extra?: Json
           halte_id?: string | null
           created_at?: string
-          geschatte_duur: number
+          geschatte_duur?: number
           id?: string
           klaar_op?: string | null
           status?: string
           tekst: string
           traject_id?: string | null
-          user_id: string
+          user_id?: string
           volgorde?: number
         }
         Update: {
+          extra?: Json
           halte_id?: string | null
           created_at?: string
           geschatte_duur?: number
@@ -620,6 +635,7 @@ export type Database = {
       }
       trajecten: {
         Row: {
+          extra: Json
           diensten: string[]
           bedrag_afgesproken: number | null
           bedrag_gefactureerd: number | null
@@ -640,6 +656,7 @@ export type Database = {
           wacht_op: string | null
         }
         Insert: {
+          extra?: Json
           diensten?: string[]
           bedrag_afgesproken?: number | null
           bedrag_gefactureerd?: number | null
@@ -656,10 +673,11 @@ export type Database = {
           status?: string
           streefdatum?: string | null
           updated_at?: string
-          user_id: string
+          user_id?: string
           wacht_op?: string | null
         }
         Update: {
+          extra?: Json
           diensten?: string[]
           bedrag_afgesproken?: number | null
           bedrag_gefactureerd?: number | null
@@ -702,6 +720,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v2_items: {
+        Row: {
+          collection: string
+          data: Json
+          item_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          collection: string
+          data: Json
+          item_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          collection?: string
+          data?: Json
+          item_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       vandaag_prioriteiten: {
         Row: {

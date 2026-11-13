@@ -164,11 +164,11 @@ function logFinished() {
 
 <template>
   <div ref="root">
-    <PageHeader title="Opdrachten" sub="Je werk per stap. De lijst komt uit Notion, hier plan je het in.">
+    <PageHeader title="Opdrachten" sub="Je werk per stap. Hier plan je het in.">
       <template #actions>
-        <button type="button" class="chip min-h-11 !gap-2 border border-line bg-surface !px-3.5 !text-[13.5px] text-muted" :title="A.sourceLabel === 'testdata' ? 'Nog niet gekoppeld. Straks haal ik dit uit Notion.' : 'Opnieuw ophalen uit Notion'" @click="refresh">
+        <button type="button" class="chip min-h-11 !gap-2 border border-line bg-surface !px-3.5 !text-[13.5px] text-muted" :title="A.sourceLabel === 'testdata' ? 'Dit is testdata.' : 'Opnieuw ophalen'" @click="refresh">
           <Icon name="tabler:refresh" class="size-4" :class="A.pulling.value || A.sync.value.pending ? 'motion-safe:animate-spin' : ''" />
-          <span>{{ A.sync.value.pending ? 'Opslaan…' : A.pulling.value ? 'Ophalen…' : `Notion · testdata · ${sinceText}` }}</span>
+          <span>{{ A.sync.value.pending ? 'Opslaan…' : A.pulling.value ? 'Ophalen…' : A.sourceLabel === 'testdata' ? `Testdata · ${sinceText}` : `Bijgewerkt ${sinceText}` }}</span>
         </button>
         <button type="button" class="btn-primary" @click="editor.open({ kind: 'opdracht', prefill: { clientId: A.clientFilter.value ?? '' } })"><Icon name="tabler:plus" class="size-4" /><span class="hidden sm:inline">Nieuwe opdracht</span><span class="sm:hidden">Nieuw</span></button>
       </template>

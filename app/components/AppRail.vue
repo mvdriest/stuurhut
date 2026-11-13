@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // iPad: smalle iconenrail. Mac (≥1280): zijbalk met labels, groepen en tellers.
 const route = useRoute()
-const { reset } = useStore()
+const account = useAccount()
 const { count } = useInbox()
 const { opportunities } = useOpportunities()
 const { unscheduled } = useTasks()
@@ -18,13 +18,6 @@ const counts = computed<Record<string, number>>(() => ({
   kansen: opportunities.value.filter(o => o.status === 'nieuw').length,
 }))
 
-function onReset() {
-  if (window.confirm('Testdata terugzetten? Alles wat je hebt aangepast verdwijnt.')) {
-    reset()
-    toast.push({ text: 'Testdata staat weer klaar.' })
-    navigateTo('/')
-  }
-}
 </script>
 
 <template>
@@ -77,9 +70,13 @@ function onReset() {
         <Icon name="tabler:clock" class="size-5" />
         <span class="hidden flex-1 text-left xl:inline">Werktijden</span><span class="num hidden whitespace-nowrap text-[13px] xl:inline">{{ D.work.value.start }}–{{ D.work.value.end }}</span>
       </button>
-      <button type="button" class="flex min-h-11 w-full items-center justify-center gap-3 rounded-[12px] text-[14.5px] text-muted hover:bg-surface-2 hover:text-ink xl:justify-start xl:px-3" title="Zet testdata terug" @click="onReset">
+      <button v-if="account.mode.value === 'demo'" type="button" class="flex min-h-11 w-full items-center justify-center gap-3 rounded-[12px] text-[14.5px] text-muted hover:bg-surface-2 hover:text-ink xl:justify-start xl:px-3" title="Zet testdata terug" @click="account.resetDemo">
         <Icon name="tabler:refresh" class="size-5" />
         <span class="hidden xl:inline">Zet testdata terug</span>
+      </button>
+      <button type="button" class="flex min-h-11 w-full items-center justify-center gap-3 rounded-[12px] text-[14.5px] hover:bg-surface-2 hover:text-ink xl:justify-start xl:px-3" :class="account.mode.value === 'demo' ? 'text-copper' : 'text-muted'" :title="account.mode.value === 'demo' ? 'Terug naar mijn data' : 'Bekijk de demo met testdata'" @click="account.toggleDemo">
+        <Icon :name="account.mode.value === 'demo' ? 'tabler:arrow-left' : 'tabler:player-play'" class="size-5" />
+        <span class="hidden xl:inline">{{ account.mode.value === 'demo' ? 'Terug naar mijn data' : 'Bekijk de demo' }}</span>
       </button>
       <div class="flex items-center justify-center gap-3 rounded-[12px] py-1.5 xl:justify-start xl:px-2">
         <UiAvatar :name="USER_NAME" tint="sand" :size="34" />
@@ -87,6 +84,9 @@ function onReset() {
           <span class="block text-[14.5px] leading-tight">{{ USER_NAME }}</span>
           <span class="block text-[12.5px] text-muted">Kapitein</span>
         </span>
+        <button type="button" class="ml-auto hidden size-9 place-items-center rounded-full text-muted hover:bg-surface-2 hover:text-ink xl:grid" title="Uitloggen" aria-label="Uitloggen" @click="account.logout">
+          <Icon name="tabler:logout" class="size-[18px]" />
+        </button>
       </div>
     </div>
   </nav>

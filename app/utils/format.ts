@@ -10,7 +10,8 @@ export const dec1 = (n: number) => num1.format(n)
 export const duration = (min: number) =>
   min < 60 ? `${min} min` : min % 60 === 0 ? `${min / 60} uur` : `${Math.floor(min / 60)} u ${min % 60} min`
 
-export const uid = (prefix = 'id') => `${prefix}-${Math.random().toString(36).slice(2, 9)}`
+/** Een uuid: echte rijen in Supabase hebben een uuid als sleutel. Het voorvoegsel is alleen nog leesbaarheid in de code. */
+export const uid = (_prefix = 'id') => crypto.randomUUID()
 
 export function initials(name: string) {
   const skip = new Set(['de', 'het', 'van', 'aan', 'en'])

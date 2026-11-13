@@ -168,7 +168,7 @@ export interface Assignment {
 }
 
 export interface SyncState {
-  source: 'testdata' | 'notion'
+  source: 'testdata' | 'notion' | 'supabase'
   lastPull: string
   /** Wijzigingen die nog naar Notion moeten */
   pending: number

@@ -113,6 +113,19 @@ async function verwerkClassificatie(
       if (!taak) throw new Error('Classificatie "nieuwe_taak" zonder nieuweTaak-data.')
 
       const trajectId = taak.trajectId && trajecten.some(t => t.id === taak.trajectId) ? taak.trajectId : null
+
+      // V2: zonder traject is het iets voor Hoofd leeg. Daar beslis je zelf waar het heen gaat.
+      if (!trajectId) {
+        const { error: inboxError } = await supabase.from('inbox_items').insert({
+          user_id: appUserId,
+          tekst: taak.tekst,
+          extra: { domain: taak.categorie === 'prive' ? 'prive' : 'zakelijk', bron: 'telegram' },
+        })
+        if (inboxError) throw new Error(inboxError.message)
+        bevestiging = `In Hoofd leeg gezet: "${taak.tekst}"`
+        resultaatLabel = `Naar Hoofd leeg: "${taak.tekst}"`
+        break
+      }
       const geschatteDuur = taak.geschatteDuur && taak.geschatteDuur > 0 ? taak.geschatteDuur : 30
       // De AI-output is niet gegarandeerd goed geformatteerd; ongeldig = niet inplannen.
       const geplandOp = taak.geplandOp && DATUM_REGEX.test(taak.geplandOp) ? taak.geplandOp : null
@@ -211,10 +224,20 @@ async function verwerkClassificatie(
     }
 
     case 'onduidelijk':
-    default:
-      bevestiging = classificatie.verduidelijkendeVraag ?? 'Ik heb dit bericht niet goed kunnen classificeren — kun je het anders formuleren?'
-      resultaatLabel = classificatie.verduidelijkendeVraag ? `Verduidelijking gevraagd: "${classificatie.verduidelijkendeVraag}"` : 'Verduidelijking gevraagd'
+    default: {
+      // V2: niets gaat verloren. Wat Stuurhut niet snapt, komt in Hoofd leeg.
+      const tekst = classificatie.transcript?.trim()
+      if (!tekst) {
+        bevestiging = 'Ik kon niets uit dit bericht halen. Probeer het nog eens?'
+        resultaatLabel = 'Leeg bericht'
+        break
+      }
+      const { error: inboxError } = await supabase.from('inbox_items').insert({ user_id: appUserId, tekst, extra: { bron: 'telegram' } })
+      if (inboxError) throw new Error(inboxError.message)
+      bevestiging = 'Staat in Hoofd leeg. Daar zet je het later op zijn plek.'
+      resultaatLabel = 'Naar Hoofd leeg'
       break
+    }
   }
 
   const { error: journalError } = await supabase.from('journal_entries').insert({
