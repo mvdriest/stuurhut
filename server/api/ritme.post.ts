@@ -89,7 +89,8 @@ export default defineEventHandler(async (event) => {
   const slaap = st
     ? { sleepH: st.sleepH, bed: tijd(st.bed.toISOString()), woke: tijd(st.woke.toISOString()) }
     : { sleepH: uren(body.sleep), bed: tijd(body.bed), woke: tijd(body.woke) }
-  const stappen = getal(body.steps)
+  // Stappen zijn hele getallen: punten en spaties zijn duizendtallen ("6.512")
+  const stappen = getal(typeof body.steps === 'string' ? body.steps.replace(/[.\s\u00a0']/g, '').replace(/,\d*$/, '') : body.steps)
   const beweeg = getal(body.move) ?? (stappen === undefined ? undefined : stappen / 100)
 
   async function bewaar(dag: string, velden: Record<string, unknown>) {
