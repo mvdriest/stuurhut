@@ -8,6 +8,7 @@
 //   starts / ends  begin- en eindtijden van alle slaapstukjes (lijst of tekst met komma's/regels);
 //                  dan rekent de server slaap, bedtijd en opstaan zelf uit (overlap telt één keer)
 //   move   beweegminuten van gisteren
+//   steps  stappen van gisteren (zonder Watch): ~100 stappen = 1 beweegminuut
 //   date   de dag waarbij de slaap hoort (standaard: vandaag)
 import { timingSafeEqual } from 'node:crypto'
 import { serverSupabaseServiceRole } from '#supabase/server'
@@ -88,7 +89,8 @@ export default defineEventHandler(async (event) => {
   const slaap = st
     ? { sleepH: st.sleepH, bed: tijd(st.bed.toISOString()), woke: tijd(st.woke.toISOString()) }
     : { sleepH: uren(body.sleep), bed: tijd(body.bed), woke: tijd(body.woke) }
-  const beweeg = getal(body.move)
+  const stappen = getal(body.steps)
+  const beweeg = getal(body.move) ?? (stappen === undefined ? undefined : stappen / 100)
 
   async function bewaar(dag: string, velden: Record<string, unknown>) {
     const schoon = Object.fromEntries(Object.entries(velden).filter(([, v]) => v !== undefined))
@@ -102,13 +104,13 @@ export default defineEventHandler(async (event) => {
 
   // Slaap hoort bij de ochtend waarop je wakker werd; beweging bij de dag ervoor (die is dan compleet)
   const nacht = await bewaar(datum, slaap)
-  const gisteren = await bewaar(dagErvoor(datum), { moveMin: beweeg === undefined ? undefined : Math.round(beweeg) })
+  const gisteren = await bewaar(dagErvoor(datum), { moveMin: beweeg === undefined ? undefined : Math.round(beweeg), steps: stappen === undefined ? undefined : Math.round(stappen) })
 
   return {
     ok: true,
     tekst: [
       nacht?.sleepH ? `Slaap ${String(nacht.sleepH).replace('.', ',')} uur${nacht.bed && nacht.woke ? ` (${nacht.bed}–${nacht.woke})` : ''}` : null,
-      gisteren?.moveMin !== undefined && gisteren ? `${gisteren.moveMin} min bewogen gisteren` : null,
+      gisteren?.moveMin !== undefined && gisteren ? (gisteren.steps !== undefined ? `${gisteren.steps} stappen gisteren (≈ ${gisteren.moveMin} min)` : `${gisteren.moveMin} min bewogen gisteren`) : null,
     ].filter(Boolean).join(' · ') || 'Niets ontvangen. Kijk of de opdracht de velden meestuurt.',
   }
 })
