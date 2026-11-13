@@ -46,6 +46,11 @@ export interface CalendarEvent {
   cancelled?: boolean
   cancelNote?: string
   domain?: Domain
+  /** Uit je agenda (alleen lezen): iCloud of Google, en welke agenda */
+  bron?: 'icloud' | 'google'
+  agenda?: string
+  /** Je hebt zelf privé/zakelijk of de klant gekozen: de sync laat dat staan */
+  domainSet?: boolean
 }
 
 export type Destination = 'inplannen' | 'klant' | 'kans' | 'weg'

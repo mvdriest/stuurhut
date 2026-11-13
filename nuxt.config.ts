@@ -18,6 +18,7 @@ export default defineNuxtConfig({
     telegramBotToken: '',
     telegramWebhookSecret: '',
     telegramAllowedUserId: '',
+    cronSecret: '',
   },
 
   css: ['~/assets/css/main.css'],

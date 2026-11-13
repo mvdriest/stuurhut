@@ -14,6 +14,8 @@ let last: Snapshot | null = null
 let started = false
 let timer: ReturnType<typeof setTimeout> | undefined
 let queue: Promise<void> = Promise.resolve()
+const agenda = ref<{ at?: string, agendas?: string[], fouten?: string[] } | null>(null)
+let agendaFout = ''
 
 export function useSync() {
   const supabase = useSupabaseClient<Database>()
@@ -115,6 +117,23 @@ export function useSync() {
     }
   }
 
+  /** Je agenda's ophalen (de server slaat over als het net nog gebeurd is). */
+  async function syncAgenda(force = false) {
+    try {
+      const r = await $fetch<{ gewijzigd: number, at?: string, agendas?: string[], fouten?: string[] }>('/api/sync/agenda', { method: 'POST', query: force ? { force: 1 } : {} })
+      agenda.value = r
+      const fout = r.fouten?.join(' · ') ?? ''
+      if (fout && fout !== agendaFout) toast.push({ text: `Agenda ophalen lukte deels niet: ${fout}` })
+      agendaFout = fout
+      if (r.gewijzigd) queue = queue.then(flush).then(load)
+    }
+    catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg !== agendaFout) toast.push({ text: `Agenda ophalen lukte niet (${msg}).` })
+      agendaFout = msg
+    }
+  }
+
   function schedule() {
     clearTimeout(timer)
     timer = setTimeout(() => { queue = queue.then(flush) }, 600)
@@ -124,11 +143,14 @@ export function useSync() {
   function start() {
     if (started) return
     started = true
-    load()
+    load().then(() => syncAgenda())
     watch(real, () => { if (ready.value) schedule() }, { deep: true })
     // Terug naar de app: even ophalen wat er intussen veranderde (bijv. via Telegram)
     useEventListener(document, 'visibilitychange', () => {
-      if (document.visibilityState === 'visible' && ready.value && !saving.value) queue = queue.then(flush).then(load)
+      if (document.visibilityState === 'visible' && ready.value && !saving.value) {
+        queue = queue.then(flush).then(load)
+        syncAgenda()
+      }
     })
   }
 
@@ -141,5 +163,5 @@ export function useSync() {
     real.value = createEmpty()
   }
 
-  return { ready, loading, saving, error, start, stop, reload: () => (queue = queue.then(flush).then(load)) }
+  return { ready, loading, saving, error, agenda, syncAgenda, start, stop, reload: () => (queue = queue.then(flush).then(load)) }
 }

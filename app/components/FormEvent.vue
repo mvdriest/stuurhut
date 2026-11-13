@@ -8,6 +8,8 @@ const clients = useClients()
 const toast = useToast()
 const D = useDomain()
 const existing = computed(() => (props.id ? cal.eventById(props.id) : undefined))
+/** Komt uit je agenda: tijd en titel pas je daar aan, hier alleen privé/zakelijk en de klant */
+const extern = computed(() => !!existing.value?.bron)
 
 const f = reactive({
   title: (existing.value?.title ?? props.prefill?.title ?? '') as string,
@@ -35,7 +37,12 @@ function save() {
   tried.value = true
   if (!valid.value) return
   const data = { title: f.title.trim(), date: f.date, start: f.start, end: f.end, clientId: f.clientId || undefined, location: f.location.trim() || undefined, domain: f.domain }
-  if (existing.value) {
+  if (existing.value && extern.value) {
+    cal.updateEvent(existing.value.id, { domain: f.domain, clientId: f.clientId || undefined, domainSet: true })
+    toast.push({ text: 'Bewaard. De volgende sync laat dit staan.' })
+    editor.saved(existing.value.id)
+  }
+  else if (existing.value) {
     cal.updateEvent(existing.value.id, data)
     toast.push({ text: 'Afspraak bijgewerkt.' })
     editor.saved(existing.value.id)
@@ -57,7 +64,12 @@ defineExpose({ save })
 
 <template>
   <form class="space-y-4" @submit.prevent="save">
-    <label class="field">
+    <div v-if="extern && existing" class="rounded-[14px] bg-surface-2 p-3.5">
+      <p class="text-[15.5px] font-semibold leading-snug">{{ existing.title }}</p>
+      <p class="mt-0.5 text-[13.5px] text-muted">{{ cap(relDay(existing.date)) }} · {{ existing.start }}–{{ existing.end }}<template v-if="existing.location"> · {{ existing.location }}</template></p>
+      <p class="mt-2 flex items-center gap-1.5 text-[13px] text-muted"><Icon name="tabler:calendar" class="size-4" />Uit {{ existing.agenda ?? 'je agenda' }}. Tijd en titel pas je daar aan.</p>
+    </div>
+    <label v-if="!extern" class="field">
       <span class="field-label">Wat? *</span>
       <input v-model="f.title" class="field-input" placeholder="Bijv. kennismaking Bakkerij Zoet" autocomplete="off" data-autofocus>
       <span v-if="tried && f.title.trim().length < 2" class="mt-1 block text-[13px] text-copper-ink">Vul een titel in.</span>
@@ -69,6 +81,7 @@ defineExpose({ save })
       </div>
     </div>
     <p v-if="f.domain === 'zakelijk' && D.outsideWork(f.date, f.start, f.end)" class="-mt-2 text-[13px] text-copper-ink">Dit valt buiten je werktijden ({{ D.work.value.start }}–{{ D.work.value.end }}).</p>
+    <template v-if="!extern">
     <label class="field">
       <span class="field-label">Dag</span>
       <select v-model="f.date" class="field-input"><option v-for="d in days" :key="d" :value="d">{{ cap(relDay(d)) }} {{ dayNum(d) }}</option></select>
@@ -79,11 +92,12 @@ defineExpose({ save })
     </div>
     <p v-if="tried && toMin(f.end) <= toMin(f.start)" class="text-[13px] text-copper-ink">Het einde moet na het begin liggen.</p>
     <p v-else-if="overlap" class="text-[13px] text-copper-ink">Overlapt met "{{ overlap.title }}" ({{ overlap.start }}–{{ overlap.end }}).</p>
+    </template>
     <label class="field">
       <span class="field-label">Klant</span>
       <select v-model="f.clientId" class="field-input"><option value="">Geen</option><option v-for="c in clients.clients.value" :key="c.id" :value="c.id">{{ c.name }}</option></select>
     </label>
-    <label class="field"><span class="field-label">Waar</span><input v-model="f.location" class="field-input" placeholder="Bijv. videobellen"></label>
-    <button v-if="existing" type="button" class="flex min-h-11 items-center gap-2 text-[14.5px] text-copper-ink" @click="remove"><Icon name="tabler:trash" class="size-4" />Afspraak verwijderen</button>
+    <label v-if="!extern" class="field"><span class="field-label">Waar</span><input v-model="f.location" class="field-input" placeholder="Bijv. videobellen"></label>
+    <button v-if="existing && !extern" type="button" class="flex min-h-11 items-center gap-2 text-[14.5px] text-copper-ink" @click="remove"><Icon name="tabler:trash" class="size-4" />Afspraak verwijderen</button>
   </form>
 </template>
