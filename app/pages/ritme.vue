@@ -133,7 +133,10 @@ const WEEK_LABELS = ['−6', '−5', '−4', '−3', '−2', 'vorige', 'nu']
         <h2 id="patronen" class="text-[19px]">Zes weken</h2>
         <NuxtLink to="/terugblik" class="inline-flex min-h-10 items-center gap-1 text-[14px] text-muted hover:text-ink"><Icon name="tabler:history" class="size-4" />Terugblik</NuxtLink>
       </div>
-      <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <p v-if="days.length < 7" class="card p-5 text-[14.5px] text-muted" data-enter>
+        Na een week dagstarts zie ik hier je slaap, beweging, werkuren en energie per week.
+      </p>
+      <div v-else class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <article v-for="p in patterns" :key="p.key" class="card p-4" data-enter>
           <div class="flex items-center justify-between gap-2">
             <p class="label flex items-center gap-1.5"><Icon :name="p.icon" class="size-4" />{{ p.label }}</p>

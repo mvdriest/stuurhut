@@ -19,6 +19,8 @@ export function useRhythm() {
       // De laatste zes weken (de testdata gaat verder terug, voor de terugblik)
       const base = Math.max(0, state.value.rhythm.length - 42)
       const slice = state.value.rhythm.slice(base + w * 7, base + w * 7 + 7)
+      // Nog niet genoeg dagen: alleen de weken die er zijn
+      if (!slice.length) continue
       const avg = (f: (d: typeof slice[number]) => number) => slice.reduce((s, d) => s + f(d), 0) / slice.length
       out.push({
         label: `wk ${isoWeek(slice[0]!.date)}`,
