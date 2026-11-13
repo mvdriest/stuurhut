@@ -1,5 +1,5 @@
-import type { Dienst, HalteSjabloon } from '~/utils/route'
-import { haltesVoorDiensten, routeSjabloon } from '~/utils/route'
+import type { Dienst, HalteSjabloon } from '#shared/route'
+import { haltesVoorDiensten, routeSjabloon } from '#shared/route'
 
 type Supabase = Awaited<ReturnType<typeof requireSupabaseUser>>['supabase']
 

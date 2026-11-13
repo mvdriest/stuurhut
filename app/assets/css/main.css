@@ -1,285 +1,112 @@
-@import "tailwindcss";
-@import "@nuxt/ui";
+@import '@fontsource/cal-sans/400.css';
+@import 'tailwindcss';
+@import './tokens.css';
 
-@theme {
-  --font-display: "komu-new-d", sans-serif;
-  --font-sans: "helvetica-neue-lt-pro", Helvetica, Arial, sans-serif;
-  --font-condensed: "helvetica-neue-lt-pro-cond", sans-serif;
-
-  /* Palette from the "Stuurhut visueel ontwerp" Claude Design handoff: warm
-     cream background, near-white cards, near-black sidebar, terracotta accent. */
-  --color-stuurhut-cream: #f2ebdf;
-  --color-stuurhut-card: #fdfaf4;
-  --color-stuurhut-subtle: #f0e8d8;
-  --color-stuurhut-sidebar: oklch(16% 0.014 48);
-  --color-stuurhut-ink: oklch(26% 0.025 50);
-  /* Alias kept for the many existing `bg-stuurhut-mist` usages across pages — same value as cream. */
-  --color-stuurhut-mist: #f2ebdf;
-  --color-stuurhut-muted: oklch(50% 0.02 55);
-
-  --color-stuurhut-accent: oklch(66% 0.14 55);
-  --color-stuurhut-accent-van: oklch(60% 0.13 44);
-  --color-stuurhut-accent-tot: oklch(76% 0.13 74);
-
-  --color-traject-groen: #35722f;
-  --color-traject-rood: #e03a2c;
-  --color-traject-oranje: #ea7b2b;
-  --color-traject-blauw: #2544d8;
-  --color-traject-paars: #5b2472;
-  --color-traject-geel: #f2e63e;
-  --color-traject-roze: #d9427f;
-  --color-traject-grijs: #6b6b6b;
-
-  /* De wereld van de kaart: lucht, heuvels, limoen als enige felle accentkleur. */
-  --color-stuurhut-lucht: #bcd8f2;
-  --color-stuurhut-limoen: #e4f28a;
-  --color-stuurhut-limoen-diep: #c9e65a;
-  --color-stuurhut-glas: rgb(253 250 244 / 0.92);
-
-  /* Progress-bar gradient from the goal cards */
-  --color-stuurhut-voortgang-van: var(--color-stuurhut-accent-van);
-  --color-stuurhut-voortgang-tot: var(--color-stuurhut-accent-tot);
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-ui-border: var(--ui-border);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-copper: var(--copper);
+  --color-copper-ink: var(--copper-ink);
+  --color-copper-soft: var(--copper-soft);
+  --color-on-copper: var(--on-copper);
+  --color-sea: var(--sea);
+  --color-sea-ink: var(--sea-ink);
+  --color-sea-soft: var(--sea-soft);
+  --color-green: var(--green);
+  --color-green-ink: var(--green-ink);
+  --color-green-soft: var(--green-soft);
+  --color-green-bar: var(--green-bar);
+  --color-cat-meeting: var(--cat-meeting);
+  --color-cat-meeting-dot: var(--cat-meeting-dot);
+  --color-cat-taak: var(--cat-taak);
+  --color-cat-taak-dot: var(--cat-taak-dot);
+  --color-cat-focus: var(--cat-focus);
+  --color-cat-focus-dot: var(--cat-focus-dot);
+  --color-cat-admin: var(--cat-admin);
+  --color-cat-admin-dot: var(--cat-admin-dot);
+  --color-cat-prive: var(--cat-prive);
+  --color-cat-prive-dot: var(--cat-prive-dot);
+  --color-cat-ink: var(--cat-ink);
+  --color-cat-ink-muted: var(--cat-ink-muted);
+  --color-focus: var(--focus);
+  --color-focus-2: var(--focus-2);
+  --color-on-focus: var(--on-focus);
+  --color-on-focus-muted: var(--on-focus-muted);
+  --color-focus-accent: var(--focus-accent);
+  --radius-card: var(--radius-card);
+  --radius-block: var(--radius-block);
+  --radius-inner: var(--radius-inner);
+  --shadow-card: var(--shadow-card);
+  --shadow-float: var(--shadow-float);
+  --font-sans: var(--font-sans);
 }
 
-/* Nuxt UI op het crème-palet: invoervelden, menu's en panelen horen bij de kaart. */
-:root {
-  --ui-bg: #fdfaf4;
-  --ui-bg-muted: #f6f0e4;
-  --ui-bg-elevated: #f0e8d8;
-  --ui-bg-accented: #e7dcc8;
-  --ui-border: rgb(60 40 20 / 0.1);
-  --ui-border-muted: rgb(60 40 20 / 0.07);
-  --ui-border-accented: rgb(60 40 20 / 0.16);
-  --ui-text: var(--color-stuurhut-ink);
-  --ui-text-highlighted: var(--color-stuurhut-ink);
-  --ui-text-muted: var(--color-stuurhut-muted);
-  --ui-radius: 0.6rem;
-  /* "primary: neutral" geeft standaard grijs-500; knoppen horen inkt te zijn. */
-  --ui-primary: var(--color-stuurhut-ink);
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    min-height: 100dvh;
+    /* Cal Sans heeft één gewicht: geen nep-vet of nep-cursief */
+    font-synthesis: none;
+    letter-spacing: 0.005em;
+  }
+  h1, h2, h3 { letter-spacing: -0.01em; }
+  button, a, [role='button'] { -webkit-tap-highlight-color: transparent; }
+  :focus-visible { outline: 2px solid var(--sea); outline-offset: 2px; border-radius: 10px; }
 }
 
-body {
-  font-family: var(--font-sans);
-  background-color: var(--color-stuurhut-cream);
-  color: var(--color-stuurhut-ink);
+@layer components {
+  .card { @apply bg-surface rounded-card shadow-card border border-line; }
+  .card-focus { @apply rounded-card text-on-focus bg-focus border border-line; }
+  .card-warm { @apply rounded-card shadow-card border border-line; background: var(--grad-warm); }
+  .card-mint { @apply rounded-card shadow-card border border-line; background: var(--grad-mint); }
+  .card-sea { @apply rounded-card shadow-card border border-line; background: var(--grad-sea); }
+  /* Oude naam, zelfde als warm */
+  .card-hero { @apply rounded-card shadow-card border border-line; background: var(--grad-warm); }
+
+  .label { @apply text-[13px] text-muted; }
+  .eyebrow { @apply text-[12.5px] uppercase text-muted; letter-spacing: 0.06em; }
+  .num { font-variant-numeric: normal; } /* Cal Sans' tabulaire cijfers lopen te ver uiteen */
+  /* Persoonlijke zinnen: zelfde letter, iets groter en rustiger */
+  .lead { letter-spacing: -0.005em; }
+
+  .btn, .btn-primary, .btn-accent, .btn-sea, .btn-ghost, .btn-ghost-focus, .btn-soft, .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 text-[15px] transition-colors min-h-11 select-none whitespace-nowrap;
+  }
+  .btn-primary { @apply bg-primary text-on-primary hover:opacity-90; }
+  .btn-accent { @apply bg-copper text-on-copper hover:opacity-90; }
+  .btn-sea { @apply bg-primary text-on-primary hover:opacity-90; }
+  .btn-ghost { @apply text-ink hover:bg-surface-2; }
+  .btn-ghost-focus { @apply text-on-focus hover:bg-white/10; }
+  .btn-soft { @apply bg-surface-2 text-ink hover:bg-surface-3; }
+  .btn-outline { @apply bg-surface text-ink border border-line-strong hover:bg-surface-2; }
+  .chip { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] leading-none whitespace-nowrap; }
+  .icon-btn { @apply inline-flex items-center justify-center rounded-full size-11 text-ink hover:bg-surface-2 transition-colors; }
+  .icon-tile { @apply inline-grid place-items-center rounded-[12px] border border-line bg-surface text-ink; }
 }
 
-/* ---------------------------------------------------------------------------------
-   Stijl van de kaart, gedeeld door alle pagina's (zie docs/design-system.md §10).
-   Glazen crème kaarten die boven een landschap zweven, chips in de bovenbalk,
-   limoen voor de ene belangrijkste actie, een donkere pil voor zwevende knoppen.
-   --------------------------------------------------------------------------------- */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.pt-safe { padding-top: env(safe-area-inset-top); }
 
-.sh-glas {
-  background: var(--color-stuurhut-glas);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: 1.25rem;
-  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
+@layer components {
+  .field { @apply block; }
+  .field-label { @apply mb-1.5 block text-[13.5px] text-muted; }
+  .field-input { @apply min-h-12 w-full rounded-[12px] border border-line-strong bg-surface px-3.5 text-[16px] text-ink outline-none placeholder:text-muted focus:border-ink; }
+  .seg { @apply flex flex-wrap gap-1.5; }
+  .seg-btn { @apply min-h-10 rounded-full border border-line-strong px-3.5 text-[14px] transition-colors; }
+  .seg-btn[aria-pressed='true'] { @apply border-transparent bg-primary text-on-primary; }
 }
 
-.sh-kaart {
-  background: var(--color-stuurhut-glas);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: 1.25rem;
-  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
-  padding: 1.25rem;
-  color: var(--color-stuurhut-ink);
-}
-
-.sh-kop {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: 1.05rem;
-  font-weight: 600;
-  line-height: 1.25;
-}
-
-.sh-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  height: 3.25rem;
-  padding: 0 1.25rem;
-  border-radius: 1rem;
-  background: rgb(253 250 244 / 0.9);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 6px 20px rgb(30 40 50 / 0.12);
-}
-
-/* Kleine monospaced bovenregel, zoals "PLAN JE DAG" en "VOLGENDE STAP". */
-.sh-kicker {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.68rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--color-stuurhut-muted);
-}
-
-.sh-titel {
-  font-family: var(--font-display);
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  line-height: 1;
-}
-
-.sh-cta {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.9rem 0.9rem 0.9rem 1.25rem;
-  border-radius: 1.25rem;
-  background: var(--color-stuurhut-limoen);
-  color: var(--color-stuurhut-ink);
-  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
-  text-align: left;
-  transition: transform 180ms;
-}
-
-.sh-cta:hover {
-  transform: translateY(-2px);
-}
-
-.sh-cta__pijl {
-  display: grid;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
-  flex-shrink: 0;
-  border-radius: 0.9rem;
-  background: rgb(0 0 0 / 0.08);
-}
-
-.sh-pil {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  padding: 0.6rem 0.6rem 0.6rem 1.5rem;
-  border-radius: 9999px;
-  background: rgb(38 38 38 / 0.88);
-  color: #fff;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.25);
-}
-
-.sh-pil__rond {
-  display: grid;
-  place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 9999px;
-  background: var(--color-stuurhut-limoen);
-  color: #262626;
-}
-
-/* Segmentknop (Alle / Zakelijk / Privé, Reis / Pijplijn) in een chip. */
-.sh-segment {
-  display: flex;
-  gap: 0.25rem;
-  padding: 0.3rem;
-  border-radius: 0.9rem;
-  background: rgb(253 250 244 / 0.9);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 6px 20px rgb(30 40 50 / 0.12);
-}
-
-.sh-segment > button,
-.sh-segment > a {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.5rem 0.95rem;
-  border-radius: 0.65rem;
-  font-size: 0.875rem;
-  color: var(--color-stuurhut-muted);
-  transition: background-color 150ms, color 150ms;
-}
-
-.sh-segment > [aria-pressed="true"],
-.sh-segment > .is-actief {
-  background: var(--color-stuurhut-ink);
-  color: #fff;
-}
-
-/* Rij in een kaart: label links, waarde rechts, dunne lijn ertussen. */
-.sh-rij {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.6rem 0;
-  border-bottom: 1px solid rgb(0 0 0 / 0.07);
-}
-
-.sh-rij:last-child {
-  border-bottom: 0;
-}
-
-.sh-vink {
-  width: 1.15rem;
-  height: 1.15rem;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  border-radius: 0.35rem;
-  border: 1.5px solid rgb(0 0 0 / 0.25);
-  color: #fff;
-  transition: background-color 150ms;
-}
-
-.sh-vink--aan {
-  background: var(--color-stuurhut-ink);
-  border-color: var(--color-stuurhut-ink);
-}
-
-/* Oudere naam voor .sh-glas; nog in gebruik in een paar componenten. */
-.stuurhut-kaart {
-  background: var(--color-stuurhut-glas);
-  backdrop-filter: blur(12px);
-  border-radius: 1.25rem;
-  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
-}
-
-.font-display {
-  font-family: var(--font-display);
-  letter-spacing: -0.01em;
-}
-
-/* Contentkolom: dezelfde 1.25rem rand als de kaart, op brede schermen iets ruimer. */
-.stuurhut-kolom {
-  width: 100%;
-  max-width: 96rem;
-  margin-inline: auto;
-  padding-inline: clamp(1.25rem, 3vw, 2.5rem);
-}
-
-/* Section headings in the concept are oversized condensed display caps. */
-.stuurhut-titel {
-  font-family: var(--font-display);
-  text-transform: uppercase;
-  letter-spacing: -0.01em;
-  line-height: 0.9;
-  font-size: clamp(2.75rem, 7vw, 5.375rem);
-}
-
-.stuurhut-voortgang {
-  background-image: linear-gradient(
-    to right,
-    var(--color-stuurhut-voortgang-van),
-    var(--color-stuurhut-voortgang-tot)
-  );
-}
-
-.stuurhut-nav-enter-active,
-.stuurhut-nav-leave-active {
-  transition: opacity 0.25s ease, transform 0.25s ease;
-}
-
-.stuurhut-nav-enter-from,
-.stuurhut-nav-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
+/* Buiten werktijd in de agenda: zachte arcering */
+.off-hours { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--line-strong) 6px 7px); opacity: 0.6; }

@@ -1,519 +1,315 @@
 <script setup lang="ts">
-import type { KaartPlek, KaartPlekId } from '~/utils/kaartPlekken'
-import { KAART_PLEKKEN } from '~/utils/kaartPlekken'
+import type { Task } from '~/types'
+import { greeting } from '~/utils/stuurman.mock'
+import { CATEGORIES, categoryOf, categoryOfTask } from '~/utils/category'
 
-definePageMeta({ layout: 'kaart' })
+useHead({ title: 'Thuisbasis · Stuurhut' })
+const root = ref<HTMLElement | null>(null)
+useMotion(root)
 
-const { overzicht, refresh: refreshOverzicht } = useKaartOverzicht()
-await useAsyncData('kaart-overzicht-init', () => refreshOverzicht())
+const today = todayISO()
+const tasks = useTasks()
+const cal = useCalendar()
+const clients = useClients()
+const finance = useFinance()
+const inbox = useInbox()
+const stuurman = useStuurman()
+const R = useRoutines()
+const { goals } = useGoals()
+const toast = useToast()
+const D = useDomain()
+const Sl = useSleep()
+const rituals = useRituals()
+const work = useWork()
+const L = useLife()
+const MOMENTS = computed(() => [
+  { key: 'dagstart', to: '/dagstart', label: 'Dagstart', icon: 'tabler:sun', done: !!rituals.started.value, time: '2 min' },
+  { key: 'afsluiten', to: '/afsluiten', label: 'Dag afsluiten', icon: 'tabler:moon', done: !!rituals.ended.value, time: '2 min' },
+  { key: 'weekreview', to: '/weekreview', label: 'Weekreview', icon: 'tabler:calendar-week', done: !!rituals.reviewed.value, time: '5 min' },
+] as const)
+const show = (i: { type: 'event' | 'task', ref: any }) => D.matches(domainOf(i))
 
-const { state: focusState, resterendeSeconden, start: startFocus, stop: stopFocus } = useFocusTimer()
+const now = ref(nowMin())
+useIntervalFn(() => { now.value = nowMin() }, 60_000)
 
-// Eén moment, op de server vastgelegd en bij hydratatie hergebruikt.
-const moment = useState('kaart-moment', () => Date.now())
-const nu = computed(() => nederlandseTijd(moment.value))
-const groet = computed(() => {
-  const uur = nu.value.uur
-  if (uur < 6) return 'Nog laat, Martijn'
-  if (uur < 12) return 'Goedemorgen, Martijn'
-  if (uur < 18) return 'Goedemiddag, Martijn'
-  if (uur < 22) return 'Goedenavond, Martijn'
-  return 'Nog laat, Martijn'
-})
-const datum = computed(() => {
-  const dag = new Date(moment.value).toLocaleDateString('nl-NL', { timeZone: 'Europe/Amsterdam', weekday: 'long', day: 'numeric', month: 'long' })
-  return dag.charAt(0).toUpperCase() + dag.slice(1)
-})
+// ---------- Vandaag ----------
+const dayItems = computed(() => cal.dayItems(today).filter(show))
+const todayTasks = computed(() => tasks.tasks.value.filter(t => t.date === today && D.matches(domainOfTask(t))))
+const doneCount = computed(() => todayTasks.value.filter(t => t.done).length)
+const noTime = computed(() => tasks.tasks.value.filter(t => t.important && !t.date && !t.done && D.matches(domainOfTask(t))))
+// Wat er zakelijk ligt te wachten tot morgen (voor de avondmodus)
+const waiting = computed(() => finance.openInvoices.value.filter(i => i.daysLate > 0).length + (stuurman.gap.value ? 1 : 0) + tasks.tasks.value.filter(t => t.important && !t.done && domainOfTask(t) === 'zakelijk' && (!t.date || t.date === today)).length)
+const nowIndex = computed(() => dayItems.value.findIndex(i => toMin(i.end) > now.value))
+const nextUp = computed(() => dayItems.value.find(i => toMin(i.start) >= now.value))
+const meetings = computed(() => dayItems.value.filter(i => i.type === 'event').length)
 
-function subtitel(id: KaartPlekId) {
-  const o = overzicht.value
-  if (!o) return ''
-  switch (id) {
-    case 'doelen': return `${meervoud(o.doelenActief, 'doel', 'doelen')} actief`
-    case 'trajecten': return `${meervoud(o.trajectenLopend, 'traject', 'trajecten')} lopend`
-    case 'agenda': return o.volgendeAfspraak
-      ? `${meervoud(o.afsprakenVandaag, 'afspraak', 'afspraken')} · volgende ${o.volgendeAfspraak.startTijd}`
-      : `${meervoud(o.afsprakenVandaag, 'afspraak', 'afspraken')} vandaag`
-    case 'todos': return `${meervoud(o.openTaken, 'taak', 'taken')} open`
-    case 'financien': return 'Nog in te richten'
-    case 'aanrader': return 'Bekijk suggestie'
+function planNow(t: Task, el: EventTarget | null) {
+  const slot = cal.findSlot(t.durationMin, { deep: t.deep, domain: domainOfTask(t) })
+  if (!slot) return toast.push({ text: 'Ik vond geen plek deze week.' })
+  flyTo((el as HTMLElement)?.closest('li'), 'week')
+  tasks.schedule(t.id, slot.date, slot.start)
+  toast.push({ text: `Ingepland ${relDay(slot.date)} om ${slot.start}.`, to: '/week', toLabel: 'Bekijk' })
+}
+
+// ---------- Vraagt aandacht ----------
+const attention = computed(() => {
+  const list: { id: string, icon: string, title: string, meta: string, to: string, tone: 'copper' | 'plain', action?: () => void, actionLabel?: string }[] = []
+  const biz = D.matches('zakelijk')
+  for (const inv of biz ? finance.openInvoices.value.filter(i => i.daysLate > 0) : []) {
+    list.push({ id: inv.id, icon: 'tabler:receipt', title: `Factuur ${inv.client.name}`, meta: `${inv.daysLate} dagen te laat · ${euroRound(inv.amount)}`, to: '/financien', tone: 'copper', action: inv.reminderPlanned ? undefined : () => remind(inv.id), actionLabel: 'Herinner' })
   }
-}
-
-// --- Reizen over de kaart ---------------------------------------------------------
-
-const kaart = ref<{ vliegNaar: (x: number, y: number, zoom?: number, duur?: number) => Promise<boolean>, overzicht: () => Promise<boolean>, zoomStap: (f: number) => void }>()
-const actiefId = ref<KaartPlekId | null>(null)
-const paneelOpen = ref(false)
-const actievePlek = computed(() => KAART_PLEKKEN.find(p => p.id === actiefId.value) ?? null)
-
-async function reisNaar(plek: KaartPlek) {
-  preview.value = false
-  actiefId.value = plek.id
-  const aangekomen = await kaart.value?.vliegNaar(plek.x, plek.y, 1.7)
-  // Onderweg onderbroken (gesleept, andere pin gekozen): niet alsnog openen.
-  if (!aangekomen || actiefId.value !== plek.id) return
-  if (plek.bestemming.soort === 'pagina') {
-    await navigateTo(plek.bestemming.to)
-  } else {
-    paneelOpen.value = true
+  const g = stuurman.gap.value
+  for (const q of biz ? work.followUps.value : []) {
+    const c = clients.byId(q.clientId)
+    list.push({ id: q.id, icon: 'tabler:send', title: `Offerte ${c?.name}`, meta: `${work.quoteDays(q)} dagen geen reactie`, to: `/klanten?id=${q.clientId}`, tone: 'plain' })
   }
-}
-
-function aanrader() {
-  const plek = KAART_PLEKKEN.find(p => p.id === 'aanrader')!
-  reisNaar(plek)
-}
-
-watch(paneelOpen, (open) => {
-  if (!open) {
-    actiefId.value = null
-    kaart.value?.overzicht()
+  for (const l of D.matches('prive') ? L.soon.value.filter(l => L.days(l) <= 14) : []) {
+    list.push({ id: l.id, icon: LIFE_CATEGORIES[l.category].icon, title: l.title, meta: L.days(l) <= 0 ? 'Nu regelen' : `Over ${L.days(l)} dagen · privé`, to: '/admin', tone: 'plain' })
   }
+  if (g && biz) list.push({ id: 'gap', icon: 'tabler:calendar-event', title: `${cap(weekdayLong(g.date))} ${g.start} vrijgekomen`, meta: `${g.title} is afgezegd`, to: '/week#gat', tone: 'copper' })
+  if (inbox.count.value) list.push({ id: 'inbox', icon: 'tabler:inbox', title: `${inbox.count.value} dingen in Hoofd leeg`, meta: 'Nog te ordenen', to: '/hoofd-leeg', tone: 'plain' })
+  const los = tasks.unscheduled.value.filter(t => D.matches(domainOfTask(t)))
+  if (los.length) list.push({ id: 'los', icon: 'tabler:checkbox', title: `${los.length} taken zonder plek`, meta: 'In Week', to: '/week', tone: 'plain' })
+  return list
 })
-
-// "Preview dag": de camera rijdt de route af, langs elke plek.
-const preview = ref(false)
-async function previewDag() {
-  if (preview.value) return
-  preview.value = true
-  try {
-    for (const plek of KAART_PLEKKEN) {
-      if (!preview.value) break
-      actiefId.value = plek.id
-      const aangekomen = await kaart.value?.vliegNaar(plek.x, plek.y, 1.5, 1.4)
-      if (!aangekomen) {
-        // Gebruiker nam het stuur over: tour stoppen, camera laten waar die is.
-        if (preview.value) actiefId.value = null
-        preview.value = false
-        return
-      }
-      await new Promise(r => setTimeout(r, 700))
-    }
-  } finally {
-    // Alleen terug naar het overzicht als de tour niet door een pin-keuze is overgenomen.
-    if (preview.value) {
-      preview.value = false
-      actiefId.value = null
-      kaart.value?.overzicht()
-    }
-  }
+function remind(id: string) {
+  const slot = finance.planReminder(id)
+  if (slot) toast.push({ text: `Herinnering staat ${relDay(slot.date)} om ${slot.start}.`, to: '/week', toLabel: 'Bekijk' })
 }
 
-const focusLabel = computed(() => {
-  if (focusState.value.fase === 'idle') return 'Focus Mode'
-  const min = Math.floor(resterendeSeconden.value / 60).toString().padStart(2, '0')
-  const sec = (resterendeSeconden.value % 60).toString().padStart(2, '0')
-  return `${focusState.value.fase === 'werk' ? 'Focus' : 'Pauze'} · ${min}:${sec}`
-})
+const suggestion = computed(() => stuurman.forPage('thuis')[0] ?? null)
 
-function wisselFocus() {
-  if (focusState.value.fase === 'idle') startFocus()
-  else stopFocus()
+// ---------- Kerncijfers ----------
+const month = finance.thisMonth
+const revenueGoal = computed(() => goals.value.find(g => g.id === 'g1'))
+
+// ---------- Routines vandaag ----------
+function routineDone(id: string) {
+  R.mark(id, true)
+  toast.push({ text: 'Genoteerd. Goed bezig.' })
 }
 
-// Na een afgeronde focusfase de teller op de kaart bijwerken.
-watch(() => focusState.value.fase, () => setTimeout(refreshOverzicht, 800))
+// ---------- Deze week ----------
+const week = computed(() => cal.days.value.map(d => ({ date: d, load: cal.dayLoad(d), items: cal.dayItems(d).filter(show) })))
+const goalGroups = computed(() => (['zakelijk', 'prive'] as const).filter(d => D.matches(d)).map(d => ({ domain: d, list: goals.value.filter(g => g.domain === d) })).filter(g => g.list.length))
+const routinesToday = computed(() => R.dueToday.value.filter(r => D.matches(domainOfRoutine(r))))
+const tomorrowFirst = computed(() => cal.dayItems(D.nextWorkStart.value.date).find(i => domainOf(i) === 'zakelijk'))
 </script>
 
 <template>
-  <div class="kaartpagina">
-    <KaartStadKaart
-      ref="kaart"
-      afbeelding="/images/kaart/utrecht.webp"
-      :route="KAART_PLEKKEN"
-    >
-      <KaartPin
-        v-for="plek in KAART_PLEKKEN"
-        :key="plek.id"
-        :plek="plek"
-        :subtitel="subtitel(plek.id)"
-        :actief="actiefId === plek.id"
-        @kies="reisNaar(plek)"
-      />
-    </KaartStadKaart>
-
-    <!-- Bovenbalk -->
-    <header class="kaartui__balk">
-      <!-- Links ruimte voor de menuknop (AppMenu), die vast linksboven zweeft. -->
-      <div class="flex gap-2 pl-[3.75rem]">
-        <div class="kaartui__chip">
-          <UIcon name="i-lucide-grip" class="size-4 text-stuurhut-muted" />
-          <span class="font-medium">Stuurhut</span>
-          <UIcon name="i-lucide-sparkle" class="size-4 text-amber-400" />
-        </div>
+  <div ref="root">
+    <!-- Welkom -->
+    <section class="card-warm p-5 md:p-7" aria-labelledby="welkom" data-enter>
+      <div class="mb-3 flex items-center gap-2 md:hidden">
+        <AppMark :size="28" />
+        <span class="text-[14px]">{{ APP_NAME }}</span>
       </div>
-      <div class="flex gap-2">
-        <div class="kaartui__chip">
-          <UIcon name="i-lucide-map-pin" class="size-4" />
-          <span>Utrecht</span>
+      <div class="mb-3 xl:hidden"><DomainSwitch class="max-w-[340px]" /></div>
+      <p class="eyebrow">{{ longDate(today) }}</p>
+      <h1 id="welkom" class="mt-1 text-[32px] leading-[1.08] tracking-[-0.02em] md:text-[40px]">{{ greeting() }}, {{ USER_NAME }}</h1>
+      <p v-if="!D.evening.value" class="mt-2 max-w-[56ch] text-[16px] text-muted md:text-[17px]">{{ stuurman.line.value }}</p>
+      <div v-else-if="!Sl.quiet.value" class="mt-3 flex flex-wrap items-center gap-3 rounded-[14px] bg-cat-prive/70 p-3.5 text-cat-ink">
+        <span class="grid size-10 shrink-0 place-items-center rounded-full bg-white/60"><Icon name="tabler:moon" class="size-5" /></span>
+        <div class="min-w-0 flex-1">
+          <p class="text-[16px]">Je werkdag zit erop.</p>
+          <p class="text-[13.5px] text-cat-ink-muted">{{ waiting ? `${waiting} zakelijke dingen wachten tot ${relDay(D.nextWorkStart.value.date)} ${D.nextWorkStart.value.start}.` : 'Er wacht niets zakelijks.' }} Nu is het jouw tijd.</p>
         </div>
-        <div class="kaartui__chip kaartui__chip--groep">
-          <button type="button" aria-label="Uitzoomen" @click="kaart?.zoomStap(1 / 1.3)"><UIcon name="i-lucide-minus" class="size-5" /></button>
-          <span class="kaartui__scheiding" />
-          <button type="button" aria-label="Inzoomen" @click="kaart?.zoomStap(1.3)"><UIcon name="i-lucide-plus" class="size-5" /></button>
+        <button type="button" class="min-h-10 rounded-full bg-white/70 px-3.5 text-[13.5px]" @click="D.showAllAnyway.value = true">Toch alles tonen</button>
+        <button v-if="D.previewOff.value && !Sl.preview.value" type="button" class="min-h-10 rounded-full px-3.5 text-[13.5px] underline underline-offset-4" @click="D.previewOff.value = false">Voorbeeld uit</button>
+      </div>
+      <EveningCard v-if="Sl.phase.value !== 'dag' && (D.off.value || Sl.preview.value)" class="mt-3" />
+
+      <nav class="mt-4 flex flex-wrap gap-2" aria-label="Momenten">
+        <NuxtLink
+          v-for="m in MOMENTS"
+          :key="m.key"
+          :to="m.to"
+          class="flex min-h-11 items-center gap-2 rounded-full py-1 pl-1 pr-4 text-[14.5px] transition-colors"
+          :class="rituals.recommended.value === m.key ? 'bg-primary text-on-primary' : 'border border-line bg-surface/85 hover:bg-surface'"
+        >
+          <span class="grid size-8 place-items-center rounded-full" :class="rituals.recommended.value === m.key ? 'bg-white/15' : m.done ? 'bg-green-bar text-white' : 'bg-surface-2'"><Icon :name="m.done && rituals.recommended.value !== m.key ? 'tabler:check' : m.icon" class="size-4" /></span>
+          {{ m.label }}
+          <span class="text-[12.5px]" :class="rituals.recommended.value === m.key ? 'opacity-70' : 'text-muted'">{{ m.done ? 'gedaan' : m.time }}</span>
+        </NuxtLink>
+      </nav>
+
+      <dl class="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+        <NuxtLink to="/week" class="rounded-[14px] border border-line bg-surface/85 p-3.5 hover:bg-surface">
+          <dt class="flex items-center gap-1.5 text-[13px] text-muted"><Icon name="tabler:users" class="size-4" />Afspraken</dt>
+          <dd class="num mt-1 text-[26px] leading-none">{{ meetings }}</dd>
+          <dd class="mt-1 truncate text-[12.5px] text-muted">{{ nextUp ? `Volgende ${nextUp.start}` : 'Niets meer vandaag' }}</dd>
+        </NuxtLink>
+        <a href="#vandaag" class="rounded-[14px] border border-line bg-surface/85 p-3.5 hover:bg-surface">
+          <dt class="flex items-center gap-1.5 text-[13px] text-muted"><Icon name="tabler:checkbox" class="size-4" />Taken</dt>
+          <dd class="num mt-1 text-[26px] leading-none">{{ doneCount }}<span class="text-[16px] text-muted">/{{ todayTasks.length }}</span></dd>
+          <dd class="mt-1 text-[12.5px] text-muted">gedaan vandaag</dd>
+        </a>
+        <NuxtLink v-if="D.effective.value === 'prive'" to="/week" class="rounded-[14px] border border-line bg-surface/85 p-3.5 hover:bg-surface">
+          <dt class="flex items-center gap-1.5 text-[13px] text-muted"><Icon name="tabler:sun" class="size-4" />{{ cap(relDay(D.nextWorkStart.value.date)) }}</dt>
+          <dd class="num mt-1 text-[26px] leading-none">{{ D.nextWorkStart.value.start }}</dd>
+          <dd class="mt-1 truncate text-[12.5px] text-muted">{{ tomorrowFirst ? `Eerst: ${tomorrowFirst.title}` : 'Werk begint' }}</dd>
+        </NuxtLink>
+        <NuxtLink v-else to="/financien" class="rounded-[14px] border border-line bg-surface/85 p-3.5 hover:bg-surface">
+          <dt class="flex items-center gap-1.5 text-[13px] text-muted"><Icon name="tabler:coin-euro" class="size-4" />Omzet {{ month.name }}</dt>
+          <dd class="num mt-1 text-[26px] leading-none">{{ euroRound(month.income) }}</dd>
+          <dd v-if="revenueGoal" class="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-3"><div class="h-full rounded-full bg-green-bar" :style="{ width: `${revenueGoal.pct * 100}%` }" /></dd>
+        </NuxtLink>
+        <NuxtLink to="/ritme" class="rounded-[14px] border border-line bg-surface/85 p-3.5 hover:bg-surface">
+          <dt class="flex items-center gap-1.5 text-[13px] text-muted"><Icon name="tabler:wave-sine" class="size-4" />Ritme</dt>
+          <dd class="num mt-1 text-[26px] leading-none">{{ Math.round(R.score.value.now * 100) }}%</dd>
+          <dd class="mt-1 text-[12.5px] text-muted">van wat tot nu toe kon</dd>
+        </NuxtLink>
+      </dl>
+    </section>
+
+    <div class="my-4" data-enter><CaptureBar /></div>
+
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+      <!-- Vandaag -->
+      <section id="vandaag" class="card scroll-mt-6 p-5 md:p-6 lg:col-span-7 lg:row-span-2" aria-labelledby="vandaag-t" data-enter>
+        <div class="flex items-center justify-between gap-3">
+          <h2 id="vandaag-t" class="text-[19px]">Vandaag</h2>
+          <NuxtLink to="/week" class="inline-flex min-h-10 items-center gap-1 text-[14px] text-muted hover:text-ink">Week <Icon name="tabler:arrow-right" class="size-4" /></NuxtLink>
         </div>
+        <div class="mt-2 flex items-center gap-3">
+          <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2"><div class="h-full rounded-full bg-ink transition-[width] duration-500" :style="{ width: `${todayTasks.length ? (doneCount / todayTasks.length) * 100 : 0}%` }" /></div>
+          <span class="num text-[13px] text-muted">{{ doneCount }} van {{ todayTasks.length }} taken</span>
+        </div>
+
+        <ol class="mt-4 space-y-2">
+          <template v-for="(i, idx) in dayItems" :key="i.id">
+            <li v-if="idx === nowIndex" class="flex items-center gap-2" aria-label="Nu">
+              <span class="num w-12 text-[13px] text-copper-ink">{{ fromMin(now) }}</span>
+              <span class="size-2 rounded-full bg-copper" /><span class="h-0.5 flex-1 rounded-full bg-copper" />
+            </li>
+            <li class="flex items-center gap-3" :class="toMin(i.end) <= now ? 'opacity-50' : ''">
+              <div class="w-12 shrink-0">
+                <p class="num text-[15px] leading-tight">{{ i.start }}</p>
+                <p class="num text-[12.5px] text-muted">{{ i.end }}</p>
+              </div>
+              <div class="flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-[14px] px-3 py-2 text-cat-ink" :class="CATEGORIES[categoryOf(i)].fill">
+                <button v-if="i.type === 'task'" type="button" class="grid size-9 shrink-0 place-items-center rounded-full" :aria-label="(i.ref as Task).done ? `${i.title} weer open` : `${i.title} afvinken`" :aria-pressed="!!(i.ref as Task).done" @click="tasks.toggleDone(i.id)">
+                  <span class="grid size-6 place-items-center rounded-full border-2 border-cat-ink/60" :class="(i.ref as Task).done ? 'bg-cat-ink border-cat-ink text-white' : 'bg-white/50'"><Icon v-if="(i.ref as Task).done" name="tabler:check" class="size-3.5" /></span>
+                </button>
+                <span v-else class="grid size-9 shrink-0 place-items-center rounded-full bg-white/50"><Icon :name="CATEGORIES[categoryOf(i)].icon" class="size-4" /></span>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-[15.5px]" :class="i.type === 'task' && (i.ref as Task).done ? 'line-through' : ''">{{ i.title }}</p>
+                  <p class="truncate text-[13px] text-cat-ink-muted">{{ clients.byId(i.ref.clientId)?.name ?? CATEGORIES[categoryOf(i)].label }}</p>
+                </div>
+              </div>
+            </li>
+          </template>
+          <li v-if="!dayItems.length" class="rounded-[14px] bg-surface-2 p-5 text-muted">Niets gepland vandaag.</li>
+        </ol>
+
+        <div v-if="noTime.length" class="mt-5">
+          <p class="mb-2 text-[13px] text-muted">Belangrijk, nog zonder tijd</p>
+          <ul class="space-y-2">
+            <li v-for="t in noTime" :key="t.id" class="flex items-center gap-3 rounded-[14px] border border-dashed border-ui-border p-2 pl-3">
+              <span class="grid size-8 shrink-0 place-items-center rounded-full text-cat-ink" :class="CATEGORIES[categoryOfTask(t)].fill"><Icon :name="CATEGORIES[categoryOfTask(t)].icon" class="size-4" /></span>
+              <span class="min-w-0 flex-1"><span class="block truncate text-[15px]">{{ t.title }}</span><span class="text-[12.5px] text-muted">{{ duration(t.durationMin) }}</span></span>
+              <button type="button" class="btn-primary !min-h-10 !px-4 !text-[14px]" @click="planNow(t, $event.currentTarget)">Plan in</button>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Vraagt aandacht -->
+      <section class="card p-5 lg:col-span-5" aria-labelledby="aandacht" data-enter>
+        <div class="mb-3 flex items-center justify-between">
+          <h2 id="aandacht" class="text-[17px]">Vraagt aandacht</h2>
+          <span class="num chip bg-surface-2 text-ink">{{ attention.length }}</span>
+        </div>
+        <ul class="divide-y divide-line">
+          <li v-for="a in attention" :key="a.id" class="flex items-center gap-3 py-2.5">
+            <span class="grid size-10 shrink-0 place-items-center rounded-[12px]" :class="a.tone === 'copper' ? 'bg-copper-soft text-copper-ink' : 'bg-surface-2'"><Icon :name="a.icon" class="size-5" /></span>
+            <NuxtLink :to="a.to" class="min-w-0 flex-1">
+              <span class="block truncate text-[15px]">{{ a.title }}</span>
+              <span class="block truncate text-[13px]" :class="a.tone === 'copper' ? 'text-copper-ink' : 'text-muted'">{{ a.meta }}</span>
+            </NuxtLink>
+            <button v-if="a.action" type="button" class="btn-accent !min-h-10 !px-3.5 !text-[13.5px]" @click="a.action()">{{ a.actionLabel }}</button>
+            <NuxtLink v-else :to="a.to" class="icon-btn shrink-0" :aria-label="`Naar ${a.title}`"><Icon name="tabler:arrow-right" class="size-4" /></NuxtLink>
+          </li>
+          <li v-if="!attention.length" class="py-3 text-[15px] text-muted">Niets dat wacht. Alles loopt.</li>
+        </ul>
+      </section>
+
+      <!-- Stuurman -->
+      <div class="lg:col-span-5" data-enter>
+        <StuurmanCard v-if="suggestion" :suggestion="suggestion" variant="focus" />
       </div>
-    </header>
 
-    <!-- Linkerkolom -->
-    <aside class="kaartui__links">
-      <div class="kaartui__groet">
-        <h1 class="text-[clamp(1.5rem,2.2vw,2rem)] leading-tight">{{ groet }} <span aria-hidden="true">👋</span></h1>
-        <p class="text-sm text-stuurhut-muted">{{ datum }}</p>
-      </div>
+      <!-- Doelen -->
+      <section class="card p-5 md:p-6 lg:col-span-7" aria-labelledby="doelen" data-enter>
+        <h2 id="doelen" class="mb-4 text-[17px]">Doelen</h2>
+        <div v-for="grp in goalGroups" :key="grp.domain" class="mb-5 last:mb-0">
+        <p class="mb-3 flex items-center gap-1.5 text-[12.5px] uppercase tracking-[0.06em] text-muted"><span class="size-2 rounded-full" :class="DOMAINS[grp.domain].dot" />{{ DOMAINS[grp.domain].label }}</p>
+        <ul class="space-y-4">
+          <li v-for="g in grp.list" :key="g.id">
+            <NuxtLink :to="g.link" class="block">
+              <div class="flex items-baseline justify-between gap-3">
+                <p class="min-w-0 truncate text-[15px]">{{ g.title }} <span class="text-[13px] text-muted">· {{ g.period }}</span></p>
+                <p class="num shrink-0 text-[15px]">{{ g.value }} <span class="text-muted">/ {{ g.of }}</span></p>
+              </div>
+              <div v-if="g.kind === 'mijlpaal'" class="mt-2 grid gap-1" :style="{ gridTemplateColumns: `repeat(${g.target}, minmax(0,1fr))` }">
+                <div v-for="(st, i) in g.steps" :key="st">
+                  <div class="h-2 rounded-full" :class="i < g.current ? 'bg-green-bar' : 'bg-surface-3'" />
+                  <p class="mt-1 truncate text-[11.5px]" :class="i < g.current ? 'text-ink' : 'text-muted'">{{ st }}</p>
+                </div>
+              </div>
+              <div v-else class="mt-2 h-2 overflow-hidden rounded-full bg-surface-3">
+                <div class="h-full rounded-full" :class="g.kind === 'grens' ? (g.ok ? 'bg-green-bar' : 'bg-copper') : 'bg-green-bar'" :style="{ width: `${g.pct * 100}%` }" />
+              </div>
+              <p v-if="g.kind === 'grens' && !g.ok" class="mt-1 text-[12.5px] text-copper-ink">{{ Math.round(g.current - g.target) }} uur boven je grens vorige week</p>
+            </NuxtLink>
+          </li>
+        </ul>
+        </div>
+      </section>
 
-      <div class="kaartui__kaarten">
-        <KaartVandaag :focus-minuten="overzicht?.focusMinutenVandaag ?? 0" />
-
-        <section class="kaartkaart kaartui__aanrader">
-          <h2 class="kaartkaart__kop">
-            <UIcon name="i-lucide-sparkles" class="size-5 text-violet-500" /> AI Aanrader
-          </h2>
-          <p class="mt-3 text-sm leading-relaxed">
-            <template v-if="overzicht">
-              Je hebt vandaag {{ meervoud(overzicht.afsprakenVandaag, 'afspraak', 'afspraken') }} en {{ meervoud(overzicht.openTaken, 'open taak', 'open taken') }}.
-              Bekijk wat nu het meeste oplevert.
-            </template>
-          </p>
-          <button type="button" class="kaartui__link mt-4" @click="aanrader">
-            Bekijk suggesties <UIcon name="i-lucide-arrow-right" class="size-4" />
-          </button>
-        </section>
-
-        <section class="kaartkaart">
-          <h2 class="kaartkaart__kop">Focus Overzicht</h2>
-          <dl class="mt-3 flex flex-col text-sm">
-            <div class="kaartui__rij">
-              <dt><UIcon name="i-lucide-calendar" class="size-4" /> Agenda</dt>
-              <dd>{{ meervoud(overzicht?.afsprakenVandaag ?? 0, 'afspraak', 'afspraken') }} vandaag</dd>
+      <!-- Routines vandaag -->
+      <section class="card p-5 lg:col-span-5" aria-labelledby="routines" data-enter>
+        <div class="mb-2 flex items-center justify-between">
+          <h2 id="routines" class="text-[17px]">Routines vandaag</h2>
+          <NuxtLink to="/ritme" class="inline-flex min-h-10 items-center gap-1 text-[14px] text-muted hover:text-ink">Ritme <Icon name="tabler:arrow-right" class="size-4" /></NuxtLink>
+        </div>
+        <ul class="divide-y divide-line">
+          <li v-for="rt in routinesToday" :key="rt.id" class="flex items-center gap-3 py-2.5">
+            <span class="grid size-10 shrink-0 place-items-center rounded-[12px] bg-surface-2"><Icon :name="rt.icon" class="size-5" /></span>
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-[15px]">{{ rt.name }}</p>
+              <p class="truncate text-[12.5px] text-muted">{{ R.week(rt).done }}/{{ rt.goal }} deze week · {{ rt.cue }}</p>
             </div>
-            <div class="kaartui__rij">
-              <dt><UIcon name="i-lucide-list" class="size-4" /> Taken</dt>
-              <dd>{{ meervoud(overzicht?.openTaken ?? 0, 'open taak', 'open taken') }}</dd>
-            </div>
-            <div class="kaartui__rij">
-              <dt><UIcon name="i-lucide-clock" class="size-4" /> Focus tijd</dt>
-              <dd>{{ formatDuur(overzicht?.focusMinutenVandaag ?? 0) }} vandaag</dd>
-            </div>
-          </dl>
-        </section>
+            <button v-if="R.stateOn(rt, today) === 'open'" type="button" class="grid size-11 shrink-0 place-items-center rounded-full border-2 border-ink/70 hover:bg-surface-2" :aria-label="`${rt.name} gedaan`" @click="routineDone(rt.id)"><Icon name="tabler:check" class="size-5" /></button>
+            <span v-else class="grid size-11 shrink-0 place-items-center rounded-full" :class="R.stateOn(rt, today) === 'done' ? 'bg-green-bar text-white' : 'bg-copper-soft text-copper-ink'"><Icon :name="R.stateOn(rt, today) === 'done' ? 'tabler:check' : 'tabler:x'" class="size-5" /></span>
+          </li>
+          <li v-if="!routinesToday.length" class="py-3 text-[15px] text-muted">Vandaag geen routines.</li>
+        </ul>
+      </section>
 
-        <button type="button" class="kaartui__focus" :class="{ 'kaartui__focus--loopt': focusState.fase !== 'idle' }" @click="wisselFocus">
-          <UIcon name="i-lucide-target" class="size-7" />
-          <span class="flex-1 text-left font-medium">{{ focusLabel }}</span>
-          <span class="kaartui__focus-pijl">
-            <UIcon :name="focusState.fase === 'idle' ? 'i-lucide-arrow-right' : 'i-lucide-square'" class="size-5" />
-          </span>
-        </button>
-      </div>
-    </aside>
-
-    <!-- Onderaan -->
-    <button type="button" class="kaartui__preview" :disabled="preview" @click="previewDag">
-      <span>{{ preview ? 'Onderweg…' : 'Preview Dag' }}</span>
-      <span class="kaartui__preview-play"><UIcon name="i-lucide-play" class="size-4" /></span>
-    </button>
-
-    <NuxtLink to="/agenda" class="kaartui__plan">
-      <div class="flex-1 flex flex-col justify-between p-6">
-        <div class="flex items-center gap-3 text-xs tracking-[0.2em] font-mono">
-          PLAN JE DAG
-          <UIcon name="i-lucide-sun" class="size-4" />
-          <UIcon name="i-lucide-calendar" class="size-4" />
-          <UIcon name="i-lucide-target" class="size-4" />
+      <!-- Deze week -->
+      <section class="card p-5 lg:col-span-12" aria-labelledby="dezeweek" data-enter>
+        <div class="mb-3 flex items-center justify-between">
+          <h2 id="dezeweek" class="text-[17px]">Komende dagen</h2>
+          <div class="hidden gap-3 text-[12.5px] text-muted sm:flex">
+            <span v-for="c in (['meeting', 'taak', 'focus', 'prive'] as const)" :key="c" class="flex items-center gap-1.5"><span class="size-2.5 rounded-[3px]" :class="CATEGORIES[c].fill" />{{ CATEGORIES[c].label }}</span>
+          </div>
         </div>
-        <p class="text-[clamp(1.25rem,1.8vw,1.75rem)] leading-tight">Maak er een productieve dag van!</p>
-      </div>
-      <img src="/images/hero-day.jpg" alt="" class="kaartui__plan-foto">
-    </NuxtLink>
-
-    <USlideover v-model:open="paneelOpen" :title="actievePlek?.label" side="right">
-      <template #body>
-        <KaartPaneel v-if="actievePlek" :key="actievePlek.id" :plek-id="actievePlek.id" />
-      </template>
-    </USlideover>
+        <div class="-mx-5 flex gap-2 overflow-x-auto px-5 no-scrollbar md:mx-0 md:grid md:grid-cols-5 md:px-0">
+          <NuxtLink v-for="d in week" :key="d.date" to="/week" class="flex min-w-[120px] flex-col rounded-[14px] p-3 transition-colors md:min-w-0" :class="d.date === today ? 'bg-primary text-on-primary' : 'bg-surface-2 hover:bg-surface-3'">
+            <div class="flex items-baseline justify-between">
+              <span class="text-[13px] capitalize" :class="d.date === today ? 'opacity-75' : 'text-muted'">{{ d.date === today ? 'vandaag' : weekdayLong(d.date) }}</span>
+              <span class="num text-[20px] leading-none">{{ dayNum(d.date) }}</span>
+            </div>
+            <div class="mt-3 flex h-[72px] flex-col gap-1 overflow-hidden">
+              <span v-for="i in d.items.slice(0, 6)" :key="i.id" class="w-full shrink-0 rounded-[4px]" :class="CATEGORIES[categoryOf(i)].fill" :style="{ height: `${Math.max(6, Math.min(18, (toMin(i.end) - toMin(i.start)) / 6))}px` }" :title="`${i.start} ${i.title}`" />
+            </div>
+            <span class="mt-2 flex items-center gap-1.5 text-[12.5px]" :class="d.date === today ? 'opacity-80' : 'text-muted'">
+              <span class="size-1.5 rounded-full" :class="{ rustig: 'bg-green-bar', normaal: 'bg-sea', vol: 'bg-copper' }[d.load.level]" />{{ d.load.level }} · {{ d.items.length }}
+            </span>
+          </NuxtLink>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
-
-<style scoped>
-.kaartpagina {
-  position: absolute;
-  inset: 0;
-}
-
-/* Alle overlay-UI laat klikken door naar de kaart, behalve de elementen zelf. */
-.kaartui__balk,
-.kaartui__links {
-  pointer-events: none;
-}
-
-.kaartui__balk > *,
-.kaartui__links > * {
-  pointer-events: auto;
-}
-
-.kaartui__balk {
-  position: absolute;
-  inset: 1.25rem 1.25rem auto 1.25rem;
-  display: flex;
-  justify-content: space-between;
-  z-index: 10;
-}
-
-.kaartui__chip {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  height: 3.25rem;
-  padding: 0 1.25rem;
-  border-radius: 1rem;
-  background: rgb(253 250 244 / 0.9);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 6px 20px rgb(30 40 50 / 0.12);
-}
-
-.kaartui__chip--vierkant {
-  width: 3.25rem;
-  padding: 0;
-  justify-content: center;
-}
-
-.kaartui__chip--groep {
-  padding: 0 0.75rem;
-}
-
-.kaartui__chip--groep button {
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.5rem;
-}
-
-.kaartui__chip--groep button:hover {
-  background: var(--color-stuurhut-subtle);
-}
-
-.kaartui__scheiding {
-  width: 1px;
-  height: 1.5rem;
-  background: rgb(0 0 0 / 0.12);
-}
-
-.kaartui__links {
-  position: absolute;
-  top: 6rem;
-  left: 1.25rem;
-  bottom: 1.25rem;
-  width: min(19.5rem, calc(100vw - 2.5rem));
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  z-index: 10;
-}
-
-.kaartui__groet {
-  padding: 0 0.5rem;
-  text-shadow: 0 1px 12px rgb(255 255 255 / 0.8);
-}
-
-.kaartui__kaarten {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  overflow-y: auto;
-  scrollbar-width: none;
-  padding-bottom: 0.25rem;
-}
-
-.kaartui__kaarten :deep(.kaartkaart),
-.kaartui__kaarten .kaartkaart {
-  padding: 1.25rem;
-  border-radius: 1.25rem;
-  background: rgb(253 250 244 / 0.92);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
-}
-
-.kaartui__kaarten :deep(.kaartkaart__kop),
-.kaartui__kaarten .kaartkaart__kop {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: 1.05rem;
-  font-weight: 600;
-}
-
-.kaartui__link {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.55rem 0.9rem;
-  border-radius: 0.6rem;
-  border: 1px solid rgb(122 63 224 / 0.3);
-  color: rgb(98 45 190);
-  font-size: 0.85rem;
-}
-
-.kaartui__link:hover {
-  background: rgb(122 63 224 / 0.07);
-}
-
-.kaartui__rij {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.6rem 0;
-  border-bottom: 1px solid rgb(0 0 0 / 0.07);
-}
-
-.kaartui__rij:last-child {
-  border-bottom: 0;
-}
-
-.kaartui__rij dt {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.kaartui__rij dd {
-  color: var(--color-stuurhut-muted);
-}
-
-.kaartui__focus {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.9rem 0.9rem 0.9rem 1.25rem;
-  border-radius: 1.25rem;
-  background: #e4f28a;
-  box-shadow: 0 10px 30px rgb(30 40 50 / 0.14);
-  transition: transform 180ms;
-}
-
-.kaartui__focus:hover {
-  transform: translateY(-2px);
-}
-
-.kaartui__focus--loopt {
-  background: #c9e65a;
-}
-
-.kaartui__focus-pijl {
-  display: grid;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.9rem;
-  background: rgb(0 0 0 / 0.08);
-}
-
-.kaartui__preview {
-  position: absolute;
-  left: 50%;
-  bottom: 1.5rem;
-  translate: -50% 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 2.5rem;
-  padding: 0.6rem 0.6rem 0.6rem 2rem;
-  border-radius: 9999px;
-  background: rgb(38 38 38 / 0.88);
-  color: #fff;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.25);
-}
-
-.kaartui__preview-play {
-  display: grid;
-  place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 9999px;
-  background: #e4f28a;
-  color: #262626;
-}
-
-.kaartui__plan {
-  position: absolute;
-  right: 1.25rem;
-  bottom: 1.25rem;
-  z-index: 10;
-  display: flex;
-  width: min(32rem, 36vw);
-  height: 13rem;
-  padding: 0.75rem;
-  border-radius: 1.5rem;
-  background: #e4f28a;
-  box-shadow: 0 10px 30px rgb(30 40 50 / 0.18);
-  transition: transform 180ms;
-}
-
-.kaartui__plan:hover {
-  transform: translateY(-2px);
-}
-
-.kaartui__plan-foto {
-  width: 45%;
-  border-radius: 1rem;
-  object-fit: cover;
-}
-
-/* Lage schermen (laptop): compacter, en de Aanrader-kaart laten vallen — de pin op
-   de kaart doet hetzelfde. */
-@media (min-width: 1024px) and (max-height: 860px) {
-  .kaartui__kaarten {
-    gap: 0.5rem;
-  }
-
-  .kaartui__kaarten :deep(.kaartkaart),
-  .kaartui__kaarten .kaartkaart {
-    padding: 0.9rem 1.1rem;
-  }
-
-  .kaartui__aanrader {
-    display: none;
-  }
-}
-
-/* Telefoon/tablet: kaarten worden een horizontale strook onderaan, de rest verdwijnt. */
-@media (max-width: 1023px) {
-  .kaartui__links {
-    top: auto;
-    bottom: 5.5rem;
-    left: 0;
-    width: 100%;
-  }
-
-  .kaartui__groet {
-    position: fixed;
-    top: 5.25rem;
-    left: 1.25rem;
-  }
-
-  .kaartui__kaarten {
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: visible;
-    scroll-snap-type: x mandatory;
-    padding: 0 1rem 0.25rem;
-  }
-
-  .kaartui__kaarten > * {
-    flex: 0 0 min(19rem, 82vw);
-    scroll-snap-align: start;
-  }
-
-  .kaartui__plan {
-    display: none;
-  }
-
-  .kaartui__balk .kaartui__chip:not(.kaartui__chip--vierkant):not(.kaartui__chip--groep) {
-    display: none;
-  }
-}
-</style>

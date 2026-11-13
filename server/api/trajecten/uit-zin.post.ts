@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { DIENSTEN } from '~/utils/route'
+import { DIENSTEN } from '#shared/route'
 
 // Leest een vrije beschrijving ("Nieuwe klant Bakkerij Jansen, website + foto, Piet 06…")
 // en geeft een concept terug om het nieuw-traject-venster mee te vullen. Er wordt hier

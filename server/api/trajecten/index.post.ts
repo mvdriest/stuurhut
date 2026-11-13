@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { TRAJECT_KLEUREN } from '~/utils/kleuren'
-import { DIENSTEN } from '~/utils/route'
+import { TRAJECT_KLEUREN } from '#shared/kleuren'
+import { DIENSTEN } from '#shared/route'
 
 const bodySchema = z.object({
   naam: z.string().min(1),

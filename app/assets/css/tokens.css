@@ -1,0 +1,118 @@
+/* ============================================================
+   Stuurhut designtokens — de enige plek voor kleur, vorm en type.
+   Achtergrond is vlak. Verlopen komen alleen op kaarten voor.
+   ============================================================ */
+:root {
+  /* Basis */
+  --bg: #F1F1EE;
+  --surface: #FFFFFF;
+  --surface-2: #F5F5F2;
+  --surface-3: #EAEAE5;
+  --line: rgba(24, 25, 27, 0.08);
+  --line-strong: rgba(24, 25, 27, 0.14);
+  --ink: #18191B;
+  --muted: #62666C;            /* ≥ 4,5:1 op wit, bg en kaartverlopen */
+  --ui-border: #8E9196;        /* 3:1 voor UI-randen */
+
+  /* Primaire actie: inkt, zoals een "Compose"-knop */
+  --primary: #18191B;
+  --on-primary: #FFFFFF;
+
+  /* Accenten */
+  --copper: #AD4E1A;           /* aandacht nu */
+  --copper-ink: #9A4313;
+  --copper-soft: #FCEADF;
+  --on-copper: #FFFFFF;
+  --sea: #2A5A77;              /* structuur, afspraken */
+  --sea-ink: #2A5A77;
+  --sea-soft: #E5EEF3;
+  --green: #25694A;            /* positief */
+  --green-ink: #25694A;
+  --green-soft: #E2F2E8;
+  --green-bar: #3FA06F;
+
+  /* Soorten in de agenda: pastel vlak + donkere tekst (≥ 12:1), in licht én donker gelijk */
+  --cat-meeting: #CFE2F7;
+  --cat-meeting-dot: #3478C0;
+  --cat-taak: #F7E2A0;
+  --cat-taak-dot: #B88A0E;
+  --cat-focus: #C5EAD1;
+  --cat-focus-dot: #2C8E57;
+  --cat-admin: #DDD4F6;
+  --cat-admin-dot: #7457CC;
+  --cat-prive: #F6CDE2;
+  --cat-prive-dot: #C94F8D;
+  --cat-ink: #18191B;
+  --cat-ink-muted: #3F4247;
+
+  /* Donkere focuskaart */
+  --focus: #18191B;
+  --focus-2: #232528;
+  --on-focus: #FFFFFF;
+  --on-focus-muted: #A6ABB0;
+  --focus-accent: #F09A62;
+
+  /* Kaartverlopen (tekst blijft ≥ 4,5:1) */
+  --grad-warm: linear-gradient(150deg, #FFE3CF 0%, #FFF1E7 42%, #FFFFFF 85%);
+  --grad-mint: radial-gradient(120% 95% at 100% 100%, #C9EDD8 0%, #E8F6EE 42%, #FFFFFF 78%);
+  --grad-sea: radial-gradient(120% 95% at 100% 0%, #D6E7F1 0%, #EEF4F8 40%, #FFFFFF 78%);
+
+  --grad-stuurman: linear-gradient(135deg, #DCEAF9 0%, #E2F4E8 60%, #FFFFFF 100%);
+
+  /* Vorm */
+  --radius-card: 22px;
+  --radius-block: 16px;
+  --radius-inner: 12px;
+  --shadow-card: 0 1px 2px rgba(24, 25, 27, 0.04);
+  --shadow-float: 0 8px 28px -10px rgba(24, 25, 27, 0.28), 0 1px 3px rgba(24, 25, 27, 0.08);
+
+  /* Typografie: Cal Sans overal */
+  --font-sans: 'Cal Sans', ui-sans-serif, system-ui, sans-serif;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0F1012;
+    --surface: #16181B;
+    --surface-2: #1E2125;
+    --surface-3: #2A2E33;
+    --line: rgba(255, 255, 255, 0.07);
+    --line-strong: rgba(255, 255, 255, 0.13);
+    --ink: #ECECE8;
+    --muted: #9DA2A8;
+    --ui-border: #6F757C;
+
+    --primary: #ECECE8;
+    --on-primary: #18191B;
+
+    --copper: #F09A62;
+    --copper-ink: #F3AC7D;
+    --copper-soft: rgba(240, 154, 98, 0.14);
+    --on-copper: #1A120C;
+    --sea: #8FC0D8;
+    --sea-ink: #9CC8DE;
+    --sea-soft: rgba(143, 192, 216, 0.13);
+    --green: #86CFA6;
+    --green-ink: #94D6B0;
+    --green-soft: rgba(134, 207, 166, 0.13);
+    --green-bar: #5DBB88;
+
+    --focus: #24272B;
+    --focus-2: #2B2F34;
+    --on-focus: #ECECE8;
+    --on-focus-muted: #9DA2A8;
+    --focus-accent: #F09A62;
+
+    --grad-warm: linear-gradient(150deg, rgba(240, 154, 98, 0.24) 0%, rgba(240, 154, 98, 0.07) 45%, rgba(22, 24, 27, 0) 85%), #16181B;
+    --grad-mint: radial-gradient(120% 95% at 100% 100%, rgba(134, 207, 166, 0.26) 0%, rgba(134, 207, 166, 0.06) 45%, rgba(22, 24, 27, 0) 78%), #16181B;
+    --grad-sea: radial-gradient(120% 95% at 100% 0%, rgba(143, 192, 216, 0.22) 0%, rgba(143, 192, 216, 0.05) 45%, rgba(22, 24, 27, 0) 78%), #16181B;
+
+    --grad-stuurman: linear-gradient(135deg, rgba(143, 192, 216, 0.20) 0%, rgba(134, 207, 166, 0.12) 60%, rgba(22, 24, 27, 0) 100%);
+    --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset;
+    --shadow-float: 0 12px 32px -10px rgba(0, 0, 0, 0.7);
+
+    color-scheme: dark;
+  }
+}

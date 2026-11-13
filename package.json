@@ -5,24 +5,31 @@
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",
+    "dev:host": "nuxt dev --host",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxi typecheck"
   },
   "dependencies": {
+    "@fontsource/cal-sans": "^5.3.0",
     "@google/genai": "^2.15.0",
-    "@iconify-json/lucide": "^1.2.145",
-    "@nuxt/ui": "^4.10.0",
+    "@iconify-json/tabler": "^1.2.44",
+    "@nuxt/icon": "^2.6.2",
     "@nuxtjs/supabase": "^2.0.10",
-    "gsap": "^3.15.0",
-    "nuxt": "^4.5.1",
-    "vue": "^3.5.40",
-    "vue-router": "^5.2.0",
+    "@tailwindcss/vite": "^4.3.5",
+    "@vite-pwa/nuxt": "^1.1.1",
+    "@vueuse/core": "^15.0.0",
+    "@vueuse/nuxt": "^15.0.0",
+    "gsap": "^3.15.1",
+    "nuxt": "^4.6.4",
+    "tailwindcss": "^4.3.5",
+    "vue": "^3.5.45",
+    "vue-router": "^5.4.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "typescript": "^6.0.3",
+    "typescript": "^5.9.3",
     "vue-tsc": "^3.3.13"
   }
 }
