@@ -8,22 +8,21 @@ Vercel, rol opnieuw uit en pas de header in de opdracht aan.
 
 ## De opdracht maken (app Opdrachten)
 
-1. **Zoek naar gezondheidsgegevens** (Find Health Samples)
-   - Type: *Slaapanalyse*
-   - Filters: *Startdatum ligt in de afgelopen 1 dagen*, *Waarde is niet Wakker*, *Waarde is niet In bed*
-   - Sorteer op *Startdatum*, *Oudste eerst*
-2. **Haal details van gezondheidsgegevens op** → *Duur* (van het resultaat van stap 1)
-3. **Bereken statistieken** → *Som* (van stap 2) — dit is `sleep`
-4. **Haal onderdeel uit lijst** → *Eerste onderdeel* van stap 1, dan **Haal details op** → *Startdatum*,
-   dan **Formatteer datum** → *ISO 8601* — dit is `bed`
-5. Hetzelfde met *Laatste onderdeel* en *Einddatum* — dit is `woke`
-6. **Zoek naar gezondheidsgegevens** → Type *Trainingsminuten*, *Startdatum ligt in de afgelopen 1 dagen*;
-   **Haal details op** → *Waarde*; **Bereken statistieken** → *Som* — dit is `move`
+1. **Zoek gezondheidswaarden** — Type *Slaap*, *Begindatum ligt in laatste 1 dag*, *Waarde is niet Wakker*,
+   *Waarde is niet In bed*, sorteer op *Begindatum*, *Oudste eerst*
+2. **Haal details op van gezondheidswaarde** → *Begindatum*; **Formatteer datum** → *ISO 8601*;
+   **Combineer tekst** met *Komma* — dit is `starts`
+3. **Haal details op van gezondheidswaarde** (invoer: de waarden uit stap 1) → *Einddatum*;
+   **Formatteer datum** → *ISO 8601*; **Combineer tekst** met *Komma* — dit is `ends`
+4. (De server rekent slaap, bedtijd en opstaan zelf uit; overlap tussen Watch en iPhone telt één keer.)
+5. —
+6. **Zoek gezondheidswaarden** → Type *Trainingsminuten*, *Startdatum ligt in de afgelopen 1 dagen*;
+   **Haal details op van gezondheidswaarde** → *Waarde*; **Bereken statistieken** → *Som* — dit is `move`
 7. **Haal inhoud van URL op**
    - URL: `https://stuurhut.vercel.app/api/ritme`
    - Methode: *POST*
    - Headers: `Authorization` = `Bearer <sleutel>`
-   - Verzoek: *JSON* met `sleep`, `bed`, `woke`, `move` (de variabelen uit de stappen hierboven)
+   - Verzoek: *JSON* met `starts`, `ends`, `move` (tekst) (de variabelen uit de stappen hierboven)
 8. Optioneel: **Toon melding** met *Inhoud van URL* → je ziet bijvoorbeeld "Slaap 7,2 uur (23:10–07:40) · 34 min bewogen gisteren".
 
 ## Automatisch elke ochtend
