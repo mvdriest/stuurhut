@@ -5,6 +5,8 @@
 //   sleep  totale slaap van afgelopen nacht (uren, minuten of seconden: wordt herkend)
 //   bed    begin van de eerste slaap   (ISO-datum/tijd of "23:15")
 //   woke   einde van de laatste slaap  (ISO-datum/tijd of "07:40")
+//   starts / ends  begin- en eindtijden van alle slaapstukjes (lijst of tekst met komma's/regels);
+//                  dan rekent de server slaap, bedtijd en opstaan zelf uit (overlap telt één keer)
 //   move   beweegminuten van gisteren
 //   date   de dag waarbij de slaap hoort (standaard: vandaag)
 import { timingSafeEqual } from 'node:crypto'
@@ -42,6 +44,30 @@ function tijd(v: unknown) {
   return ergens ? `${ergens[1]!.padStart(2, '0')}:${ergens[2]}` : undefined
 }
 
+/** Lijst of tekst ("a, b" of per regel) → momenten */
+function momenten(v: unknown) {
+  const delen = Array.isArray(v) ? v.map(String) : String(v ?? '').split(/[\n,;]+(?=\s*\d{4}-)/)
+  return delen.map(x => new Date(x.trim())).filter(d => !Number.isNaN(d.getTime()))
+}
+
+/** Slaapstukjes samenvoegen: totale duur zonder dubbeltelling, plus eerste begin en laatste eind. */
+function uitStukjes(starts: unknown, ends: unknown) {
+  const b = momenten(starts)
+  const e = momenten(ends)
+  const stukjes = b.map((s, i) => [s.getTime(), e[i]?.getTime() ?? Number.NaN] as const)
+    .filter(([s, t]) => Number.isFinite(t) && t > s)
+    .sort((x, y) => x[0] - y[0])
+  if (!stukjes.length) return null
+  let totaal = 0
+  let [cs, ce] = stukjes[0]!
+  for (const [s, t] of stukjes.slice(1)) {
+    if (s <= ce) ce = Math.max(ce, t)
+    else { totaal += ce - cs; cs = s; ce = t }
+  }
+  totaal += ce - cs
+  return { sleepH: Math.round(totaal / 36000) / 100, bed: new Date(stukjes[0]![0]), woke: new Date(Math.max(...stukjes.map(x => x[1]))) }
+}
+
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const header = getHeader(event, 'authorization') ?? ''
@@ -58,7 +84,10 @@ export default defineEventHandler(async (event) => {
   const userId = users?.users[0]?.id
   if (error || !userId) throw createError({ statusCode: 500, statusMessage: 'Geen account gevonden.' })
 
-  const slaap = { sleepH: uren(body.sleep), bed: tijd(body.bed), woke: tijd(body.woke) }
+  const st = uitStukjes(body.starts, body.ends)
+  const slaap = st
+    ? { sleepH: st.sleepH, bed: tijd(st.bed.toISOString()), woke: tijd(st.woke.toISOString()) }
+    : { sleepH: uren(body.sleep), bed: tijd(body.bed), woke: tijd(body.woke) }
   const beweeg = getal(body.move)
 
   async function bewaar(dag: string, velden: Record<string, unknown>) {
