@@ -110,6 +110,7 @@ export default defineEventHandler(async (event) => {
   const status = {
     at: new Date().toISOString(),
     agendas: bronnen.map(b => b.agenda),
+    telling: Object.fromEntries(telling),
     afspraken: rijen.length,
     nieuw: rijen.filter(r => !oud.has(r.id)).length,
     weg: weg.length,

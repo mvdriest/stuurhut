@@ -91,8 +91,12 @@ export async function haalBronnen(van: Date, tot: Date) {
 }
 
 /** Alle afspraken met een tijd in het venster, herhalingen uitgeklapt. Hele-dag-items slaan we over. */
+export const telling = new Map<string, { items: number, heleDag: number, buiten: number, bytes: number }>()
+
 export function voorvallen(bron: Bron, van: Date, tot: Date): Voorval[] {
   const uit: Voorval[] = []
+  const tel = { items: 0, heleDag: 0, buiten: 0, bytes: bron.ics.reduce((s, t) => s + t.length, 0) }
+  telling.set(bron.agenda, tel)
   for (const tekst of bron.ics) {
     let comp: ICAL.Component
     try {
@@ -112,6 +116,8 @@ export function voorvallen(bron: Bron, van: Date, tot: Date): Voorval[] {
     for (const ev of alle) if (ev.isRecurrenceException()) hoofd.get(ev.uid)?.relateException(ev)
 
     for (const ev of hoofd.values()) {
+      tel.items++
+      if (ev.startDate?.isDate) tel.heleDag++
       if (!ev.startDate || ev.startDate.isDate) continue
       if (String(ev.component.getFirstPropertyValue('status') ?? '').toUpperCase() === 'CANCELLED') continue
       const voeg = (start: ICAL.Time, eind: ICAL.Time, item: ICAL.Event, sleutel: string) => {
@@ -158,5 +164,6 @@ export function voorvallen(bron: Bron, van: Date, tot: Date): Voorval[] {
       }
     }
   }
+  tel.buiten = tel.items - tel.heleDag - new Set(uit.map(u => u.extern)).size
   return uit
 }
