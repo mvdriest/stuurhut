@@ -42,7 +42,7 @@ export function progressIn(s: AppState, from: ISODate, to: ISODate): Progress {
     tasksDone: s.tasks.filter(t => t.done && inRange(t.date, from, to)).length,
     routinesDone,
     wins: Object.entries(s.rituals.dayEnd).filter(([d, e]) => inRange(d, from, to) && e.win).length,
-    energy: avg(days.map(d => d.energy)),
+    energy: avg(days.map(d => d.energy).filter((e): e is NonNullable<typeof e> => e != null)),
     wake: wakeAvg === null ? null : clock(wakeAvg),
     freeEvenings: evenings.length ? { free: evenings.filter(d => !d.lastWork).length, of: evenings.length } : null,
   }

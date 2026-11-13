@@ -245,7 +245,8 @@ export interface RhythmDay {
   /** Slaap in de nacht vóór deze dag */
   sleepH: number
   moveMin: number
-  energy: 1 | 2 | 3 | 4 | 5
+  /** Uit je dagstart. Leeg als je die dag geen dagstart deed. */
+  energy?: 1 | 2 | 3 | 4 | 5
   workH: number
   /** Naar bed (de avond ervoor) en opgestaan (deze ochtend) */
   bed?: Time

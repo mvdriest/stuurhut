@@ -24,7 +24,7 @@ const S = useSleep()
 const lastNight = state.value.rhythm.at(-1)
 const nowRounded = Math.round(nowMin() / 5) * 5
 const bed = ref<string>(rituals.started.value?.bed ?? (lastNight?.bed ? clock(Math.round(nightMin(lastNight.bed) / 15) * 15) : S.forMorning(today).bed))
-const woke = ref<string>(rituals.started.value?.woke ?? (nowRounded >= 5 * 60 && nowRounded < 12 * 60 ? clock(nowRounded) : S.wakeToday.value))
+const woke = ref<string>(rituals.started.value?.woke ?? (lastNight?.date === today && lastNight.woke ? lastNight.woke : null) ?? (nowRounded >= 5 * 60 && nowRounded < 12 * 60 ? clock(nowRounded) : S.wakeToday.value))
 const rested = ref<1 | 2 | 3 | null>(rituals.started.value?.rested ?? null)
 const RESTED = [{ v: 1, l: 'moe' }, { v: 2, l: 'gaat wel' }, { v: 3, l: 'uitgerust' }] as const
 const TIMES = [{ key: 'bed', label: 'Naar bed', r: bed }, { key: 'op', label: 'Opgestaan', r: woke }]

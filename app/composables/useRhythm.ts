@@ -26,7 +26,7 @@ export function useRhythm() {
         label: `wk ${isoWeek(slice[0]!.date)}`,
         sleep: avg(d => d.sleepH),
         move: avg(d => d.moveMin),
-        energy: avg(d => d.energy),
+        energy: (() => { const e = slice.map(d => d.energy).filter((x): x is NonNullable<typeof x> => x != null); return e.length ? e.reduce((a, b) => a + b, 0) / e.length : 0 })(),
         work: slice.reduce((s, d) => s + d.workH, 0),
       })
     }

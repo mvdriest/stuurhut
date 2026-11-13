@@ -6,7 +6,7 @@
 //    weet, staat in de kolom `extra` van die rij.
 // 2. Al het andere staat in `v2_items`: één rij per ding (collection + item_id),
 //    of één rij per instelling (collection '_state').
-import type { AppState, Assignment, CalendarEvent, Client, Goal, InboxItem, Project, TimelineItem } from '~/types'
+import type { AppState, RhythmDay, Assignment, CalendarEvent, Client, Goal, InboxItem, Project, TimelineItem } from '~/types'
 import type { Database, Json } from '~/types/database.types'
 
 type T = Database['public']['Tables']
@@ -261,12 +261,49 @@ export function fromSupabase(d: Loaded, base: AppState): AppState {
     const rows = d.v2_items.filter(r => r.collection === key)
     rec[key] = rows.map(r => r.data)
   }
-  if (s.rhythm.length) s.rhythm.sort((a, b) => a.date.localeCompare(b.date))
   if (s.chat.length) s.chat.sort((a, b) => a.at.localeCompare(b.at))
   for (const r of d.v2_items.filter(r => r.collection === '_state')) {
     if ((SINGLES as readonly string[]).includes(r.item_id)) rec[r.item_id] = r.data
   }
+  const health = new Map(d.v2_items.filter(r => r.collection === 'health').map(r => [r.item_id, r.data as unknown as Health]))
+  s.rhythm = bouwRitme(s, health)
   return s
+}
+
+// ---------- Ritme: per dag samengesteld ----------
+/** Wat de iOS-opdracht uit Apple Gezondheid stuurt (collection 'health', sleutel = datum) */
+export interface Health { date: string, sleepH?: number, bed?: string, woke?: string, moveMin?: number }
+
+/**
+ * Eén ritmedag per datum, uit: Gezondheid (slaap, beweging), je dagstart (bedtijd en opstaan
+ * zoals jij ze opgaf, energie, uitgerust), je gelogde uren en wanneer de laptop dichtging.
+ */
+export function bouwRitme(s: AppState, health: Map<string, Health>): RhythmDay[] {
+  const oud = new Map(s.rhythm.map(r => [r.date, r]))
+  const uren = new Map<string, number>()
+  for (const t of s.timeEntries) uren.set(t.date, (uren.get(t.date) ?? 0) + t.hours)
+  const datums = new Set([...oud.keys(), ...health.keys(), ...Object.keys(s.rituals.dayStart)])
+  const werkEind = s.prefs.workHours.end
+  return [...datums].sort().map((date) => {
+    const r = oud.get(date)
+    const h = health.get(date)
+    const ds = s.rituals.dayStart[date]
+    const bed = ds?.bed ?? h?.bed ?? r?.bed
+    const woke = ds?.woke ?? h?.woke ?? r?.woke
+    const dicht = s.evenings[addDays(date, -1)]?.closedAt
+    const day: RhythmDay = {
+      date,
+      sleepH: h?.sleepH ?? ds?.sleep ?? r?.sleepH ?? (bed && woke ? sleepHours(bed, woke) : 0),
+      moveMin: h?.moveMin ?? r?.moveMin ?? 0,
+      workH: Math.max(uren.get(date) ?? 0, r?.workH ?? 0),
+      energy: (ds?.energy ?? r?.energy) as RhythmDay['energy'],
+      rested: ds?.rested ?? r?.rested,
+      bed,
+      woke,
+      lastWork: dicht && nightMin(dicht) > nightMin(werkEind) ? dicht : r?.lastWork,
+    }
+    return JSON.parse(JSON.stringify(day)) as RhythmDay
+  })
 }
 
 // ---------- Momentopname: wat er nu in Supabase staat ----------

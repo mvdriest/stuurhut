@@ -29,6 +29,8 @@ const energyText = computed(() => {
 })
 
 const avg = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length
+/** Alleen de dagen waarop je je energie gaf */
+const energies = (xs: { energy?: number }[]) => xs.map(d => d.energy).filter((e): e is NonNullable<typeof e> => e != null)
 const days = computed(() => r.days.value.slice(-42))
 const last14 = computed(() => days.value.slice(-14))
 const first28 = computed(() => days.value.slice(0, 28))
@@ -38,7 +40,7 @@ const patterns = computed(() => [
   { key: 'slaap', label: 'Slaap', icon: 'tabler:moon', tone: 'sea' as const, value: `${dec1(avg(days.value.map(d => d.sleepH)))} u`, sub: 'gemiddeld per nacht', series: days.value.map(d => d.sleepH), min: 5, max: 9, change: avg(last14.value.map(d => d.sleepH)) - avg(first28.value.map(d => d.sleepH)), unit: 'u' },
   { key: 'beweging', label: 'Beweging', icon: 'tabler:walk', tone: 'green' as const, value: `${Math.round(avg(days.value.map(d => d.moveMin)))} min`, sub: 'gemiddeld per dag', series: days.value.map(d => d.moveMin), min: 0, max: 100, change: avg(last14.value.map(d => d.moveMin)) - avg(first28.value.map(d => d.moveMin)), unit: 'min' },
   { key: 'werk', label: 'Werkuren', icon: 'tabler:briefcase', tone: 'copper' as const, value: `${Math.round(workWeek(last14.value))} u`, sub: 'per week, laatste twee weken', series: r.weeks.value.map(w => w.work), min: 20, max: 55, change: workWeek(last14.value) - workWeek(first28.value), unit: 'u' },
-  { key: 'energie', label: 'Energie', icon: 'tabler:bolt', tone: 'sea' as const, value: dec1(avg(days.value.map(d => d.energy))), sub: 'gemiddeld, van 1 tot 5', series: days.value.map(d => d.energy), min: 1, max: 5, change: avg(last14.value.map(d => d.energy)) - avg(first28.value.map(d => d.energy)), unit: '' },
+  { key: 'energie', label: 'Energie', icon: 'tabler:bolt', tone: 'sea' as const, value: energies(days.value).length ? dec1(avg(energies(days.value))) : '–', sub: 'gemiddeld, van 1 tot 5 (uit je dagstart)', series: energies(days.value), min: 1, max: 5, change: energies(last14.value).length && energies(first28.value).length ? avg(energies(last14.value)) - avg(energies(first28.value)) : 0, unit: '' },
 ])
 const fmtChange = (n: number, unit: string) => `${n >= 0 ? '+' : '−'}${unit === 'min' || unit === 'u' && Math.abs(n) >= 2 ? Math.round(Math.abs(n)) : dec1(Math.abs(n))}${unit ? ` ${unit}` : ''}`
 

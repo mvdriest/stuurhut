@@ -1,5 +1,5 @@
 // Dagstart, dagafsluiting en weekreview: de vaste momenten waar Stuurhut op leunt.
-import type { DayEnd, DayStart, ISODate, WeekReview } from '~/types'
+import type { DayEnd, DayStart, ISODate, RhythmDay, WeekReview } from '~/types'
 
 export type RitualKey = 'dagstart' | 'afsluiten' | 'weekreview'
 
@@ -27,6 +27,24 @@ export function useRituals() {
 
   function saveDayStart(d: Omit<DayStart, 'at'>) {
     r.value.dayStart[today] = { ...d, at: new Date().toISOString() }
+    // Ook in je ritme van vandaag (slaap uit Gezondheid blijft staan als die er al is)
+    const list = state.value.rhythm
+    const i = list.findIndex(x => x.date === today)
+    const prev = i >= 0 ? list[i]! : undefined
+    const day = {
+      date: today,
+      sleepH: prev?.sleepH || d.sleep || (d.bed && d.woke ? sleepHours(d.bed, d.woke) : 0),
+      moveMin: prev?.moveMin ?? 0,
+      workH: prev?.workH ?? 0,
+      ...(prev ?? {}),
+      bed: d.bed ?? prev?.bed,
+      woke: d.woke ?? prev?.woke,
+      energy: (d.energy ?? prev?.energy) as RhythmDay['energy'],
+      rested: d.rested ?? prev?.rested,
+    }
+    const clean = JSON.parse(JSON.stringify(day)) as RhythmDay
+    if (i >= 0) list.splice(i, 1, clean)
+    else list.push(clean)
   }
   function saveDayEnd(d: Omit<DayEnd, 'at'>) {
     r.value.dayEnd[today] = { ...d, at: new Date().toISOString() }

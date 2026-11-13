@@ -66,7 +66,7 @@ export function useSleep() {
       .map(d => toNight(d.date, d.bed, d.woke, d.sleepH, d.rested, d.lastWork, d.energy))
     // Vandaag uit de dagstart, plus of je gisteravond nog werkte
     const ds = state.value.rituals.dayStart[today]
-    if (ds?.bed && ds.woke) {
+    if (ds?.bed && ds.woke && !list.some(n => n.date === today)) {
       const closed = state.value.evenings[addDays(today, -1)]?.closedAt
       const late = closed && nightMin(closed) > nightMin(state.value.prefs.workHours.end) ? closed : undefined
       list.push(toNight(today, ds.bed, ds.woke, ds.sleep ?? sleepHours(ds.bed, ds.woke), ds.rested, late, ds.energy))
