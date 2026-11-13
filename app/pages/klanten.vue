@@ -101,6 +101,10 @@ const openCommitments = computed(() => client.value?.commitments.filter(c => !c.
             <div class="min-w-0 flex-1">
               <h2 class="text-[24px] font-semibold leading-tight tracking-[-0.01em]">{{ client.name }}</h2>
               <p class="text-[14px] text-muted">{{ [client.contact, client.sector].filter(Boolean).join(' · ') || 'Nog geen contactpersoon' }}</p>
+              <p v-if="client.email || client.phone" class="mt-0.5 flex flex-wrap gap-x-3 text-[13.5px]">
+                <a v-if="client.email" :href="`mailto:${client.email}`" class="text-sea-ink">{{ client.email }}</a>
+                <a v-if="client.phone" :href="`tel:${client.phone.replace(/\s/g, '')}`" class="text-sea-ink">{{ client.phone }}</a>
+              </p>
             </div>
             <span class="chip" :class="statusClass(client.status)">{{ client.status }}</span>
             <button type="button" class="icon-btn -mr-2 shrink-0" :aria-label="`${client.name} bewerken`" title="Bewerken" @click="editor.open({ kind: 'klant', id: client.id })"><Icon name="tabler:pencil" class="size-[18px]" /></button>
@@ -130,10 +134,17 @@ const openCommitments = computed(() => client.value?.commitments.filter(c => !c.
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div class="card-focus p-5 md:p-6" data-enter data-detail>
             <p class="text-[13px] font-semibold text-on-focus-muted">Volgende stap</p>
+            <template v-if="!client.nextStep">
+              <p class="lead mt-2 text-[22px] leading-snug">Nog geen volgende stap</p>
+              <p class="mt-1 text-[13.5px] text-on-focus-muted">Wat moet er hierna gebeuren?</p>
+              <button type="button" class="btn-primary mt-4 !bg-on-focus !text-focus" @click="editor.open({ kind: 'klant', id: client.id })"><Icon name="tabler:pencil" class="size-4" />Stap invullen</button>
+            </template>
+            <template v-else>
             <p class="lead mt-2 text-[22px] leading-snug">{{ client.nextStep }}</p>
             <p class="mt-1 text-[13.5px] text-on-focus-muted">{{ duration(client.nextStepDurationMin) }}</p>
             <p v-if="nextTask?.date" class="mt-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2.5 text-[14px]"><Icon name="tabler:check" class="size-4" />Staat {{ relDay(nextTask.date) }} om {{ nextTask.start }}</p>
             <button v-else type="button" class="btn-primary mt-4 !bg-on-focus !text-focus" @click="planNext">Plan in <Icon name="tabler:arrow-right" class="size-4" /></button>
+            </template>
           </div>
 
           <div class="card p-5 md:p-6" data-enter data-detail>

@@ -27,10 +27,10 @@ export function useSync() {
         if (e) throw new Error(`${table}: ${e.message}`)
         return (data ?? []) as unknown as Loaded[N]
       })
-      const [klanten, contacten, trajecten, subtaken, afspraken, inbox_items, doelen, doel_mijlpalen, v2_items] = await Promise.all([
-        q('klanten'), q('contacten'), q('trajecten'), q('subtaken'), q('afspraken'), q('inbox_items'), q('doelen'), q('doel_mijlpalen'), q('v2_items'),
+      const [klanten, contacten, trajecten, subtaken, afspraken, inbox_items, doelen, doel_mijlpalen, traject_haltes, journal_entries, v2_items] = await Promise.all([
+        q('klanten'), q('contacten'), q('trajecten'), q('subtaken'), q('afspraken'), q('inbox_items'), q('doelen'), q('doel_mijlpalen'), q('traject_haltes'), q('journal_entries'), q('v2_items'),
       ])
-      const next = fromSupabase({ klanten, contacten, trajecten, subtaken, afspraken, inbox_items, doelen, doel_mijlpalen, v2_items }, createEmpty())
+      const next = fromSupabase({ klanten, contacten, trajecten, subtaken, afspraken, inbox_items, doelen, doel_mijlpalen, traject_haltes, journal_entries, v2_items }, createEmpty())
       next.sync.lastPull = new Date().toISOString()
       // Eerst de momentopname, dan pas de state: zo telt het laden niet als wijziging.
       last = snapshot(next)

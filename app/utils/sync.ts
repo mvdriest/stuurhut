@@ -6,7 +6,7 @@
 //    weet, staat in de kolom `extra` van die rij.
 // 2. Al het andere staat in `v2_items`: één rij per ding (collection + item_id),
 //    of één rij per instelling (collection '_state').
-import type { AppState, Assignment, CalendarEvent, Client, Goal, InboxItem, Project } from '~/types'
+import type { AppState, Assignment, CalendarEvent, Client, Goal, InboxItem, Project, TimelineItem } from '~/types'
 import type { Database, Json } from '~/types/database.types'
 
 type T = Database['public']['Tables']
@@ -37,6 +37,8 @@ export interface Loaded {
   inbox_items: Row<'inbox_items'>[]
   doelen: Row<'doelen'>[]
   doel_mijlpalen: Row<'doel_mijlpalen'>[]
+  traject_haltes: Row<'traject_haltes'>[]
+  journal_entries: Row<'journal_entries'>[]
   v2_items: Row<'v2_items'>[]
 }
 
@@ -51,12 +53,22 @@ export const MAPPED = [
   {
     key: 'clients',
     table: 'klanten',
-    toRow: (c: Client) => ({ id: c.id, naam: c.name, extra: rest(c, ['id', 'name']) }),
+    // Contactgegevens en journaal-notities komen uit hun eigen tabel: niet dubbel opslaan.
+    toRow: (c: Client) => ({ id: c.id, naam: c.name, extra: rest({ ...c, timeline: c.timeline.filter(t => t.bron !== 'journal') }, ['id', 'name', 'email', 'phone']) }),
   } satisfies Mapped<'clients', Client>,
   {
     key: 'projects',
     table: 'trajecten',
-    toRow: (p: Project) => ({ id: p.id, naam: p.name, klant_id: p.clientId || null, bedrag_afgesproken: p.budget, extra: rest(p, ['id', 'name', 'clientId', 'budget']) }),
+    toRow: (p: Project) => ({
+      id: p.id,
+      naam: p.name,
+      klant_id: p.clientId || null,
+      bedrag_afgesproken: p.budget,
+      eerstvolgende_actie: p.nextStep || null,
+      wacht_op: p.waitingOn || null,
+      streefdatum: p.due || null,
+      extra: rest(p, ['id', 'name', 'clientId', 'budget', 'nextStep', 'waitingOn', 'due', 'stops']),
+    }),
   } satisfies Mapped<'projects', Project>,
   {
     key: 'assignments',
@@ -117,8 +129,36 @@ export const itemId = (key: ListKey, item: unknown) =>
 export function fromSupabase(d: Loaded, base: AppState): AppState {
   const s = base
   const trajectKlant = new Map(d.trajecten.map(t => [t.id, t.klant_id]))
-  const contactVan = new Map<string, string>()
-  for (const c of d.contacten) if (c.klant_id && !contactVan.has(c.klant_id)) contactVan.set(c.klant_id, c.naam)
+  const contactVan = new Map<string, Row<'contacten'>>()
+  for (const c of d.contacten) if (c.klant_id && !contactVan.has(c.klant_id)) contactVan.set(c.klant_id, c)
+  // Volgende stap: de meest recent bijgewerkte eerstvolgende actie van de trajecten van die klant
+  const stapVan = new Map<string, string>()
+  for (const t of [...d.trajecten].sort((a, b) => b.updated_at.localeCompare(a.updated_at))) {
+    if (t.klant_id && t.eerstvolgende_actie?.trim() && !stapVan.has(t.klant_id)) stapVan.set(t.klant_id, t.eerstvolgende_actie.trim())
+  }
+  // Journaal-notities bij een traject horen in de tijdlijn van die klant
+  const journaalVan = new Map<string, TimelineItem[]>()
+  for (const j of d.journal_entries) {
+    const klant = j.traject_id ? trajectKlant.get(j.traject_id) : undefined
+    if (!klant) continue
+    const regel = j.inhoud.split('\n')[0]!.trim()
+    const item: TimelineItem = {
+      id: j.id,
+      kind: 'notitie',
+      date: j.created_at.slice(0, 10),
+      title: regel.length > 90 ? `${regel.slice(0, 88)}…` : regel,
+      body: [regel === j.inhoud.trim() ? '' : j.inhoud.trim(), j.resultaat_label ?? ''].filter(Boolean).join('\n\n') || undefined,
+      bron: 'journal',
+    }
+    journaalVan.set(klant, [...(journaalVan.get(klant) ?? []), item])
+  }
+  const haltesVan = new Map<string, { done: number, total: number }>()
+  for (const h of d.traject_haltes) {
+    const v = haltesVan.get(h.traject_id) ?? { done: 0, total: 0 }
+    v.total++
+    if (h.afgerond_op) v.done++
+    haltesVan.set(h.traject_id, v)
+  }
   const lopend = new Set(d.trajecten.filter(t => t.status !== 'on_hold').map(t => t.klant_id))
 
   s.clients = d.klanten.map((k) => {
@@ -127,30 +167,38 @@ export function fromSupabase(d: Loaded, base: AppState): AppState {
       ...x,
       id: k.id,
       name: k.naam,
-      contact: x.contact ?? contactVan.get(k.id) ?? '',
+      contact: x.contact || contactVan.get(k.id)?.naam || '',
+      email: contactVan.get(k.id)?.email ?? undefined,
+      phone: contactVan.get(k.id)?.telefoon ?? undefined,
       sector: x.sector ?? '',
       status: x.status ?? (lopend.has(k.id) ? 'lopend' : 'lead'),
       tint: x.tint ?? tintFor(k.id),
-      nextStep: x.nextStep ?? '',
+      nextStep: stapVan.get(k.id) ?? x.nextStep ?? '',
       nextStepDurationMin: x.nextStepDurationMin ?? 30,
       commitments: x.commitments ?? [],
-      timeline: x.timeline ?? [],
+      timeline: [...(x.timeline ?? []).filter(t => t.bron !== 'journal'), ...(journaalVan.get(k.id) ?? [])].sort((a, b) => b.date.localeCompare(a.date)),
     }
   })
 
   // V2 kent alleen projecten bij een klant. Trajecten zonder klant blijven in Supabase staan.
   s.projects = d.trajecten.filter(t => t.klant_id).map((t) => {
     const x = ex<Project>(t.extra)
+    const stops = haltesVan.get(t.id)
     return {
       ...x,
       id: t.id,
       clientId: t.klant_id!,
       name: t.naam,
       status: x.status ?? (t.status === 'on_hold' ? 'afgerond' : 'lopend'),
-      progress: x.progress ?? 0,
+      progress: stops?.total ? stops.done / stops.total : (x.progress ?? 0),
       budget: Number(t.bedrag_afgesproken ?? 0),
       hourlyRate: x.hourlyRate ?? 85,
       billedHours: x.billedHours ?? 0,
+      nextStep: t.eerstvolgende_actie?.trim() || undefined,
+      waitingOn: t.wacht_op?.trim() || undefined,
+      waitingSince: t.wacht_op?.trim() ? (x.waitingSince ?? t.updated_at.slice(0, 10)) : undefined,
+      due: /^\d{4}-\d{2}-\d{2}$/.test(t.streefdatum ?? '') ? t.streefdatum! : undefined,
+      stops,
     }
   })
 

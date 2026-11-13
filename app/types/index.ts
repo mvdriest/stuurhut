@@ -65,6 +65,8 @@ export interface TimelineItem {
   date: ISODate
   title: string
   body?: string
+  /** Komt uit het journaal in Supabase (wordt daar bijgehouden, niet in V2) */
+  bron?: 'journal'
 }
 
 export interface Client {
@@ -78,6 +80,9 @@ export interface Client {
   tint: 'copper' | 'sea' | 'green' | 'sand'
   nextStep: string
   nextStepDurationMin: number
+  /** Uit de contactpersonen in Supabase */
+  email?: string
+  phone?: string
   commitments: { id: string, text: string, done: boolean }[]
   timeline: TimelineItem[]
 }
@@ -94,6 +99,15 @@ export interface Project {
   hourlyRate: number
   /** Uren die al gefactureerd zijn */
   billedHours: number
+  /** Eerstvolgende actie (ook via Telegram bij te werken) */
+  nextStep?: string
+  /** Waar je op wacht, en sinds wanneer */
+  waitingOn?: string
+  waitingSince?: ISODate
+  /** Streefdatum */
+  due?: ISODate
+  /** Haltes van de reisroute: afgerond / totaal */
+  stops?: { done: number, total: number }
 }
 
 export interface TimeEntry {

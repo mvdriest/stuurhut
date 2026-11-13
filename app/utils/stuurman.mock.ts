@@ -418,6 +418,24 @@ export function buildSuggestions(ctx: StuurmanContext): StuurmanSuggestion[] {
     })
   }
 
+  // Een project wacht al lang (uit Supabase: wacht_op)
+  for (const p of s.projects.filter(p => p.status !== 'afgerond' && p.waitingOn && p.waitingSince && diffDays(todayISO(), p.waitingSince) >= 5)) {
+    const c = clientOf(p.clientId)
+    const who = c?.contact.split(' ')[0] || c?.name || 'de klant'
+    const title = `Navragen bij ${who}: ${p.waitingOn!.toLowerCase()}`
+    if (s.tasks.some(t => t.title === title)) continue
+    const slot = ctx.slot(15, { domain: 'zakelijk' })
+    if (!slot) continue
+    const n = diffDays(todayISO(), p.waitingSince!)
+    out.push({
+      id: `project-wacht-${p.id}`, pages: ['klanten', 'thuis'], tone: 'klant', icon: 'tabler:send',
+      title: `Navragen bij ${who}`, meta: `${n} dagen`,
+      text: `${p.name} wacht al ${n} dagen (${p.waitingOn}). Zal ik ${when(slot)} een kwartier zetten om even te vragen hoe het staat?`,
+      why: 'Wachten houdt je werk stil. Een kort berichtje is vriendelijk en houdt de vaart erin.',
+      acceptLabel: 'Plan een kwartier', action: { type: 'addTask', title, date: slot.date, start: slot.start, durationMin: 15, kind: 'taak', domain: 'zakelijk', clientId: p.clientId },
+    })
+  }
+
   // Geld apart zetten deze maand
   const monthKey = todayISO().slice(0, 7)
   if (!s.prefs.tax.setAside[monthKey]) {

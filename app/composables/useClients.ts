@@ -78,7 +78,11 @@ export function useClients() {
   function updateClient(id: string, i: ClientInput) {
     const c = byId(id)
     if (!c) return
+    const oldStep = c.nextStep
     Object.assign(c, { name: i.name.trim(), contact: i.contact.trim(), sector: i.sector.trim(), status: i.status, nextStep: i.nextStep.trim() || c.nextStep })
+    // De volgende stap staat in Supabase bij het traject (zo kan Telegram hem ook bijwerken)
+    const own = projectsFor(id).find(p => p.nextStep && p.nextStep === oldStep) ?? projectsFor(id).find(p => p.status !== 'afgerond')
+    if (own && c.nextStep !== oldStep) own.nextStep = c.nextStep
     const p = projectsFor(id)[0]
     if (p && i.projectName?.trim()) Object.assign(p, { name: i.projectName.trim(), budget: i.projectBudget ?? p.budget, status: i.status })
     else if (!p && i.projectName?.trim()) state.value.projects.push({ id: uid('pr'), clientId: id, name: i.projectName.trim(), status: i.status, progress: 0, budget: i.projectBudget ?? 0, hourlyRate: 85, billedHours: 0 })

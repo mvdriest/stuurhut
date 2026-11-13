@@ -11,6 +11,8 @@ const toast = useToast()
 const s = computed(() => work.stats(props.project))
 const tone = computed(() => (s.value.pct > 1 ? 'bg-copper' : s.value.pct > 0.85 ? 'bg-cat-taak-dot' : 'bg-green-bar'))
 const recent = computed(() => work.entriesFor(props.project.id).slice(0, 3))
+const waitDays = computed(() => (props.project.waitingSince ? diffDays(todayISO(), props.project.waitingSince) : 0))
+const dueDays = computed(() => (props.project.due ? diffDays(props.project.due, todayISO()) : 0))
 const logging = ref(false)
 const note = ref('')
 
@@ -42,6 +44,12 @@ function planTalk() {
       </div>
       <p class="num shrink-0 text-right text-[15px]">{{ dec1(s.hours).replace(',0', '') }}<span class="text-muted"> / {{ Math.round(s.budgetHours) }} u</span></p>
     </div>
+    <ul v-if="project.nextStep || project.waitingOn || project.due || project.stops" class="mt-2.5 space-y-1 text-[13px]">
+      <li v-if="project.waitingOn" class="flex gap-2" :class="waitDays >= 5 ? 'text-copper-ink' : 'text-muted'"><Icon name="tabler:hourglass" class="mt-0.5 size-4 shrink-0" /><span>Wacht op: {{ project.waitingOn }}<template v-if="waitDays > 0"> · {{ waitDays }} {{ waitDays === 1 ? 'dag' : 'dagen' }}</template></span></li>
+      <li v-if="project.nextStep" class="flex gap-2 text-ink"><Icon name="tabler:arrow-right" class="mt-0.5 size-4 shrink-0 text-muted" /><span>{{ project.nextStep }}</span></li>
+      <li v-if="project.due" class="flex gap-2" :class="dueDays < 0 ? 'text-copper-ink' : 'text-muted'"><Icon name="tabler:flag" class="mt-0.5 size-4 shrink-0" /><span>{{ dueDays < 0 ? `Streefdatum ${shortDate(project.due)} is voorbij` : `Streefdatum ${relDay(project.due)}` }}</span></li>
+      <li v-if="project.stops" class="flex gap-2 text-muted"><Icon name="tabler:route" class="mt-0.5 size-4 shrink-0" /><span>Route: {{ project.stops.done }} van {{ project.stops.total }} haltes</span></li>
+    </ul>
     <div class="mt-3 h-2.5 overflow-hidden rounded-full bg-surface-3" role="img" :aria-label="`${Math.round(s.pct * 100)}% van de begrote uren`">
       <div class="h-full rounded-full transition-[width] duration-500" :class="tone" :style="{ width: `${Math.min(100, s.pct * 100)}%` }" />
     </div>
