@@ -35,3 +35,7 @@ create table if not exists public.v2_items (
 alter table public.v2_items enable row level security;
 create policy v2_items_owner_policy on public.v2_items
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- 5. Rechten: nieuwe tabellen krijgen hier niet vanzelf rechten (RLS bewaakt welke rijen).
+grant select, insert, update, delete on public.v2_items to authenticated, service_role;
+grant select, insert, update, delete on public.klanten, public.contacten, public.afspraken, public.traject_bestanden, public.traject_haltes to service_role;
