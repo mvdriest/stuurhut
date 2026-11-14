@@ -8,6 +8,8 @@ useMotion(root)
 const f = useFinance()
 const work = useWork()
 const stuurman = useStuurman()
+const terms = useTerms()
+const editor = useEditor()
 const toast = useToast()
 
 const m = f.thisMonth
@@ -143,6 +145,30 @@ function paid(id: string) {
               </div>
               <div class="mt-2 h-2 overflow-hidden rounded-full bg-surface-2"><div class="h-full origin-left rounded-full bg-gradient-to-r from-green-bar/40 to-green-bar" :style="{ transform: `scaleX(${r.share / f.revenueByClient.value[0]!.share})` }" /></div>
             </NuxtLink>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Nog te factureren -->
+      <section class="card p-5 md:p-6 lg:col-span-12" aria-labelledby="tefactureren" data-enter>
+        <div class="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="tefactureren" class="text-[17px] font-semibold">Nog te factureren</h2>
+          <span class="num text-[15px] font-semibold">{{ euro(terms.unbilledTotal.value) }}</span>
+        </div>
+        <p class="mb-4 text-[13.5px] text-muted">Afgesproken met klanten, nog niet gefactureerd. Geld dat nog gaat komen.</p>
+        <ul class="space-y-2">
+          <li v-for="r in terms.unbilled.value" :key="r.term.id">
+            <NuxtLink :to="`/klanten?id=${r.project.clientId}`" class="flex items-center gap-3 rounded-[14px] px-3.5 py-3 hover:bg-surface-3" :class="r.due ? 'bg-copper-soft/60' : 'bg-surface-2'">
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-[15px] font-semibold">{{ terms.clientName(r.project) }} · {{ r.term.label }}</span>
+                <span class="block truncate text-[13px]" :class="r.status === 'uitgesteld' ? 'text-copper-ink' : 'text-muted'">{{ r.project.name }} · {{ r.status === 'uitgesteld' ? `uitgesteld${r.term.reason ? `: ${r.term.reason}` : ''}` : r.due ? 'nu factureren' : r.when }}</span>
+              </span>
+              <span class="num text-[15px] font-semibold">{{ euro(r.term.amount) }}</span>
+            </NuxtLink>
+          </li>
+          <li v-if="!terms.unbilled.value.length" class="rounded-[14px] bg-surface-2 p-5 text-[14.5px] text-muted">
+            Niets afgesproken dat nog gefactureerd moet worden.
+            <button type="button" class="mt-2 flex min-h-10 items-center gap-1.5 font-semibold text-sea-ink" @click="editor.open({ kind: 'akkoord' })"><Icon name="tabler:file-check" class="size-4" />Akkoord op een offerte vastleggen</button>
           </li>
         </ul>
       </section>

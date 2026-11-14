@@ -7,6 +7,7 @@ const isMd = useMediaQuery('(min-width: 768px)')
 const form = ref<{ save: () => void } | null>(null)
 const body = ref<HTMLElement | null>(null)
 const TITLES: Record<EditorKind, [string, string]> = {
+  akkoord: ['Akkoord vastleggen', 'Afspraken bewerken'],
   klant: ['Nieuwe klant', 'Klant bewerken'],
   routine: ['Nieuwe routine', 'Routine bewerken'],
   taak: ['Nieuwe taak', 'Taak bewerken'],
@@ -48,7 +49,8 @@ onKeyStroke('Escape', () => { if (editor.req.value) editor.close() })
           <button type="button" class="icon-btn -mr-2" aria-label="Sluiten" @click="editor.close()"><Icon name="tabler:x" class="size-5" /></button>
         </header>
         <div ref="body" class="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-          <FormClient v-if="editor.req.value.kind === 'klant'" ref="form" :id="editor.req.value.id" :prefill="editor.req.value.prefill" />
+          <FormDeal v-if="editor.req.value.kind === 'akkoord'" ref="form" :id="editor.req.value.id" :prefill="editor.req.value.prefill" />
+          <FormClient v-else-if="editor.req.value.kind === 'klant'" ref="form" :id="editor.req.value.id" :prefill="editor.req.value.prefill" />
           <FormRoutine v-else-if="editor.req.value.kind === 'routine'" ref="form" :id="editor.req.value.id" :prefill="editor.req.value.prefill" />
           <FormTask v-else-if="editor.req.value.kind === 'taak'" ref="form" :id="editor.req.value.id" :prefill="editor.req.value.prefill" />
           <FormAssignment v-else-if="editor.req.value.kind === 'opdracht'" ref="form" :id="editor.req.value.id" :prefill="editor.req.value.prefill" />
@@ -59,7 +61,7 @@ onKeyStroke('Escape', () => { if (editor.req.value) editor.close() })
         </div>
         <footer class="flex gap-2 border-t border-line px-5 py-3.5">
           <button type="button" class="btn-ghost" @click="editor.close()">Annuleer</button>
-          <button type="button" class="btn-primary ml-auto min-w-[140px]" @click="form?.save()">{{ editor.req.value.id || editor.req.value.kind === 'werktijden' || editor.req.value.kind === 'slaap' ? 'Opslaan' : 'Aanmaken' }}</button>
+          <button type="button" class="btn-primary ml-auto min-w-[140px]" @click="form?.save()">{{ editor.req.value.kind === 'akkoord' && !editor.req.value.id ? 'Vastleggen' : editor.req.value.id || editor.req.value.kind === 'werktijden' || editor.req.value.kind === 'slaap' ? 'Opslaan' : 'Aanmaken' }}</button>
         </footer>
       </section>
     </Transition>

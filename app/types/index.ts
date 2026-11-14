@@ -115,6 +115,34 @@ export interface Project {
   due?: ISODate
   /** Haltes van de reisroute: afgerond / totaal */
   stops?: { done: number, total: number }
+  /** Vaste prijs afgesproken (budget = de prijs); meerwerk tegen hourlyRate */
+  fixedPrice?: boolean
+  /** Wanneer de klant akkoord gaf, en je eigen offertenummer */
+  acceptedOn?: ISODate
+  quoteRef?: string
+  /** Je eigen offerte (PDF) in de opslag */
+  quoteFile?: { name: string, path: string }
+  /** Factuurtermijnen: wanneer je wat factureert */
+  terms?: InvoiceTerm[]
+}
+
+/** start = zodra de klant akkoord is, oplevering = als het traject af is, datum = op een vaste dag */
+export type TermTrigger = 'start' | 'oplevering' | 'datum'
+export type TermStatus = 'open' | 'uitgesteld' | 'gefactureerd' | 'betaald'
+export interface InvoiceTerm {
+  id: string
+  label: string
+  /** Deel van de prijs, 0..100 */
+  pct: number
+  /** Bedrag excl. btw */
+  amount: number
+  trigger: TermTrigger
+  date?: ISODate
+  status: TermStatus
+  /** Waarom het (nog) niet gefactureerd wordt */
+  reason?: string
+  invoicedOn?: ISODate
+  invoiceNumber?: string
 }
 
 export interface TimeEntry {
@@ -365,7 +393,7 @@ export interface ChatMessage {
   form?: EditorRequest
 }
 
-export type EditorKind = 'klant' | 'routine' | 'taak' | 'afspraak' | 'werktijden' | 'admin' | 'opdracht' | 'slaap'
+export type EditorKind = 'akkoord' | 'klant' | 'routine' | 'taak' | 'afspraak' | 'werktijden' | 'admin' | 'opdracht' | 'slaap'
 export interface EditorRequest {
   kind: EditorKind
   id?: string

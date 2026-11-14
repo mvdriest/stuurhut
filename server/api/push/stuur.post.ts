@@ -3,14 +3,16 @@
 import { timingSafeEqual } from 'node:crypto'
 import { serverSupabaseServiceRole } from '#supabase/server'
 import type { Database, Json } from '../../../app/types/database.types'
-import type { AppState, Routine } from '../../../app/types'
+import type { AppState, InvoiceTerm, Project, Routine } from '../../../app/types'
 import { laptopTarget } from '../../../app/utils/sleep'
+import { termDue } from '../../../app/utils/terms'
 import type { Melding } from '../../utils/push'
 
 const TZ = 'Europe/Amsterdam'
 const SPELING_MIN = 20
 const DAGSTART_UITERLIJK = '10:00'
 const STUURMAN_OM = '09:30'
+const FACTUUR_OM = '10:30'
 
 const STANDAARD: Pick<AppState['prefs'], 'reminders' | 'workHours' | 'sleep'> = {
   reminders: {},
@@ -84,6 +86,30 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // 6. Factuurtermijn aan de beurt (hooguit eens per 3 dagen per termijn)
+  if (werkdag) {
+    const { data: lopend } = await admin.from('trajecten').select('id, naam, status, extra, klant_id').eq('user_id', userId)
+    const { data: haltes } = await admin.from('traject_haltes').select('traject_id, afgerond_op').eq('user_id', userId)
+    const klantNamen = new Map(((await admin.from('klanten').select('id, naam').eq('user_id', userId)).data ?? []).map(k => [k.id, k.naam]))
+    const stops = new Map<string, { done: number, total: number }>()
+    for (const h of haltes ?? []) {
+      const v = stops.get(h.traject_id) ?? { done: 0, total: 0 }
+      v.total++
+      if (h.afgerond_op) v.done++
+      stops.set(h.traject_id, v)
+    }
+    const aanDeBeurt = (lopend ?? []).flatMap((t) => {
+      const x = (t.extra ?? {}) as Partial<Project>
+      return (x.terms ?? []).filter((term: InvoiceTerm) => termDue({ status: x.status ?? 'lopend', stops: stops.get(t.id) }, term, nu.datum)).map(term => ({ t, term }))
+    }).filter(({ term }) => !Object.entries(log).some(([k, d]) => k === `termijn:${term.id}` && Date.now() - new Date(d).getTime() < 3 * 86400000))
+    const eerste = aanDeBeurt[0]
+    if (eerste) {
+      const naam = klantNamen.get(eerste.t.klant_id ?? '') ?? eerste.t.naam
+      const meer = aanDeBeurt.length > 1 ? ` En nog ${aanDeBeurt.length - 1} andere.` : ''
+      kandidaten.push({ sleutel: 'factuur', om: FACTUUR_OM, title: 'Factureren', body: `${eerste.term.label} ${naam}: ${Math.round(eerste.term.amount)} euro excl. btw kan de deur uit.${meer}`, url: `/klanten?id=${eerste.t.klant_id ?? ''}`, tag: 'factuur', termijnen: aanDeBeurt.map(a => a.term.id) } as Melding & { sleutel: string, om: string, termijnen: string[] })
+    }
+  }
+
   // 4. Laptop dicht, zodat je op tijd slaapt
   if (!evenings[nu.datum]?.closedAt) {
     try {
@@ -104,6 +130,7 @@ export default defineEventHandler(async (event) => {
       log[sleutel] = at
       const w = (k as { wacht?: string }).wacht
       if (w) log[`wacht:${w}`] = at
+      for (const id of (k as { termijnen?: string[] }).termijnen ?? []) log[`termijn:${id}`] = at
       verstuurd.push(k.sleutel)
     }
   }

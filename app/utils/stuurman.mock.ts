@@ -9,6 +9,7 @@ import type { AppState, ChatMessage, Destination, EditorRequest, SuggestionTone,
 import { addDays, diffDays, fromISO, planDays, relDay, todayISO, weekdayLong, weekdayShort } from './date'
 import { dec1, duration, euroRound } from './format'
 import { MEERWERK_TARIEF } from './constants'
+import { termDue } from './terms'
 import { domainOfTask, guessDomain } from './domain'
 import { firstStepFor, stuckAssignments, stuckTasks } from './firststep'
 import { anchorTime, clock, clockMin, isWeekend, minText, weekendLatest } from './sleep'
@@ -270,6 +271,33 @@ export function buildSuggestions(ctx: StuurmanContext): StuurmanSuggestion[] {
       acceptLabel: 'Laat gaan',
       action: { type: 'setOpportunityStatus', opportunityId: 'o4', status: 'laten gaan' },
     })
+  }
+
+  // Factuurtermijnen die aan de beurt zijn: factureren inplannen
+  for (const p of s.projects) {
+    for (const t of p.terms ?? []) {
+      if (!termDue(p, t, todayISO())) continue
+      const naam = ctx.clientName(p.clientId)
+      const title = `Factuur ${t.label.toLowerCase()} ${naam} (${euroRound(t.amount)})`
+      if (s.tasks.some(x => x.title === title && !x.done)) continue
+      const slot = ctx.slot(20, { domain: 'zakelijk' })
+      const vraag = slot ? ` Zal ik er ${when(slot)} twintig minuten voor zetten?` : ''
+      out.push({
+        id: `factuur-termijn-${t.id}`,
+        title: `${t.label} ${naam} factureren`,
+        icon: 'tabler:file-invoice',
+        meta: `${euroRound(t.amount)} excl. btw`,
+        pages: ['thuis', 'financien', 'klanten'],
+        text: t.trigger === 'oplevering'
+          ? `${p.name} is opgeleverd. De ${t.label.toLowerCase()} van ${euroRound(t.amount)} kan de deur uit.${vraag}`
+          : `De ${t.label.toLowerCase()} voor ${p.name} (${t.pct}%, ${euroRound(t.amount)}) is aan de beurt.${vraag}`,
+        why: 'Afgesproken in je offerte. Hoe eerder de factuur weg is, hoe eerder het geld binnen is. Kan het nog niet? Stel hem dan uit bij de klant.',
+        acceptLabel: slot ? 'Zet erin' : 'Naar de klant',
+        action: slot
+          ? { type: 'addTask', title, date: slot.date, start: slot.start, durationMin: 20, kind: 'admin', domain: 'zakelijk', clientId: p.clientId }
+          : { type: 'navigate', to: `/klanten?id=${p.clientId}` },
+      })
+    }
   }
 
   // Financiën: meer verdienen. Een vaste maandprijs voor onderhoud, gerekend met je eigen klanten en meerwerktarief.
@@ -936,7 +964,7 @@ export function chatReply(input: string, c: ChatContext): ChatReply {
 // ---------- Aanmaken door het te zeggen ----------
 // "Nieuwe klant: Bakkerij Zoet, contact Anna" → ingevuld klantformulier.
 const WEEKDAYS = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag']
-export const CREATE_LABEL: Record<EditorRequest['kind'], string> = { klant: 'klant', routine: 'routine', taak: 'taak', afspraak: 'afspraak', admin: 'herinnering', werktijden: 'werktijd', opdracht: 'opdracht', slaap: 'slaapritme' }
+export const CREATE_LABEL: Record<EditorRequest['kind'], string> = { akkoord: 'akkoord', klant: 'klant', routine: 'routine', taak: 'taak', afspraak: 'afspraak', admin: 'herinnering', werktijden: 'werktijd', opdracht: 'opdracht', slaap: 'slaapritme' }
 
 export function parseCreate(text: string): EditorRequest | null {
   const t = text.trim()

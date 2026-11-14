@@ -112,6 +112,7 @@ const openCommitments = computed(() => client.value?.commitments.filter(c => !c.
           <div class="mt-4 space-y-3">
             <ProjectCard v-for="p in clients.projectsFor(client.id)" :key="p.id" :project="p" />
           </div>
+          <button type="button" class="btn-ghost mt-2 -ml-3 !text-[14px]" @click="editor.open({ kind: 'akkoord', prefill: { clientId: client.id } })"><Icon name="tabler:file-check" class="size-4" />Akkoord op een offerte vastleggen</button>
         </div>
 
         <div v-if="clientAssignments.length" class="card p-5 md:p-6" data-enter data-detail>

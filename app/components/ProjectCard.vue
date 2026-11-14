@@ -8,6 +8,7 @@ const tasks = useTasks()
 const cal = useCalendar()
 const clients = useClients()
 const toast = useToast()
+const editor = useEditor()
 const s = computed(() => work.stats(props.project))
 const tone = computed(() => (s.value.pct > 1 ? 'bg-copper' : s.value.pct > 0.85 ? 'bg-cat-taak-dot' : 'bg-green-bar'))
 const recent = computed(() => work.entriesFor(props.project.id).slice(0, 3))
@@ -40,7 +41,7 @@ function planTalk() {
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
         <p class="text-[15.5px]">{{ project.name }}</p>
-        <p class="text-[12.5px] text-muted">{{ euroRound(project.budget) }} · {{ euroRound(project.hourlyRate) }} per uur · {{ project.status }}</p>
+        <p class="text-[12.5px] text-muted">{{ euroRound(project.budget) }}{{ project.fixedPrice ? ' vaste prijs' : ` · ${euroRound(project.hourlyRate)} per uur` }} · {{ project.status }}</p>
       </div>
       <p class="num shrink-0 text-right text-[15px]">{{ dec1(s.hours).replace(',0', '') }}<span class="text-muted"> / {{ Math.round(s.budgetHours) }} u</span></p>
     </div>
@@ -50,6 +51,7 @@ function planTalk() {
       <li v-if="project.due" class="flex gap-2" :class="dueDays < 0 ? 'text-copper-ink' : 'text-muted'"><Icon name="tabler:flag" class="mt-0.5 size-4 shrink-0" /><span>{{ dueDays < 0 ? `Streefdatum ${shortDate(project.due)} is voorbij` : `Streefdatum ${relDay(project.due)}` }}</span></li>
       <li v-if="project.stops" class="flex gap-2 text-muted"><Icon name="tabler:route" class="mt-0.5 size-4 shrink-0" /><span>Route: {{ project.stops.done }} van {{ project.stops.total }} haltes</span></li>
     </ul>
+    <ProjectTerms v-if="project.terms?.length" :project="project" />
     <div class="mt-3 h-2.5 overflow-hidden rounded-full bg-surface-3" role="img" :aria-label="`${Math.round(s.pct * 100)}% van de begrote uren`">
       <div class="h-full rounded-full transition-[width] duration-500" :class="tone" :style="{ width: `${Math.min(100, s.pct * 100)}%` }" />
     </div>
@@ -60,6 +62,7 @@ function planTalk() {
     <div class="mt-3 flex flex-wrap items-center gap-2">
       <button v-if="project.status !== 'afgerond'" type="button" class="btn-outline !min-h-10 !px-3.5 !text-[13.5px]" :aria-expanded="logging" @click="logging = !logging"><Icon name="tabler:clock" class="size-4" />Uren loggen</button>
       <button v-if="s.billable > 0" type="button" class="btn-primary !min-h-10 !px-3.5 !text-[13.5px]" @click="invoice"><Icon name="tabler:file-invoice" class="size-4" />Factureer {{ dec1(s.billable).replace(',0', '') }} u · {{ euroRound(s.billableAmount) }}</button>
+      <button v-if="!project.terms?.length && project.status !== 'afgerond'" type="button" class="btn-outline !min-h-10 !px-3.5 !text-[13.5px]" @click="editor.open({ kind: 'akkoord', prefill: { clientId: project.clientId, projectId: project.id } })"><Icon name="tabler:file-check" class="size-4" />Akkoord vastleggen</button>
       <button v-if="s.over && project.status !== 'afgerond'" type="button" class="btn-accent !min-h-10 !px-3.5 !text-[13.5px]" @click="planTalk">Plan gesprek</button>
     </div>
     <div v-if="logging" class="mt-3 rounded-[12px] bg-surface p-3">
