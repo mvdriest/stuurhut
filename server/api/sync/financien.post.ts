@@ -91,24 +91,38 @@ export default defineEventHandler(async (event) => {
       })?.id
     }
 
-    // Transacties
-    const transacties: Transaction[] = mutaties
-      .filter(m => GELDSTROMEN.includes(Number(m.type)))
-      .map((m) => {
-        const c = cache.mutaties[m.id] ?? {}
-        const relatie = c.r ? cache.relaties[c.r] : undefined
-        const erin = [BETALING_ONTVANGEN, GELD_ONTVANGEN].includes(Number(m.type))
-        const bedrag = Math.abs(Number(m.amount) || 0)
-        const label = c.d || (m.invoiceNumber ? `${erin ? 'Betaling' : 'Betaald'} ${m.invoiceNumber}` : relatie) || (erin ? 'Ontvangen' : 'Uitgegeven')
-        return {
-          id: `eb-${m.id}`,
-          date: m.date.slice(0, 10),
-          amount: erin ? bedrag : -bedrag,
-          label: relatie && !label.includes(relatie) ? `${label} · ${relatie}` : label,
-          clientId: erin ? klantVan(relatie) : undefined,
-          category: Number(m.type) === BETALING_ONTVANGEN ? 'omzet' : 'overig',
-        }
-      })
+    // Transacties. Kosten bij dezelfde partij in 3+ verschillende maanden tellen als vaste lasten.
+    const schoon = (t?: string) => t
+      ?.replace(/\b[A-Z]{2}\d{2}[A-Z]{4}\d{6,}\b/g, '') // IBAN
+      .replace(/\b[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?\b/g, '') // BIC
+      .replace(/\s{2,}/g, ' ').trim()
+    const geldstromen = mutaties.filter(m => GELDSTROMEN.includes(Number(m.type)))
+    const maandenPerRelatie = new Map<number, Set<string>>()
+    for (const m of geldstromen) {
+      const r = cache.mutaties[m.id]?.r
+      if (r && [BETALING_VERSTUURD, GELD_UITGEGEVEN].includes(Number(m.type))) {
+        maandenPerRelatie.set(r, (maandenPerRelatie.get(r) ?? new Set()).add(m.date.slice(0, 7)))
+      }
+    }
+    const transacties: Transaction[] = geldstromen.map((m) => {
+      const c = cache.mutaties[m.id] ?? {}
+      const relatie = c.r ? cache.relaties[c.r] : undefined
+      const erin = [BETALING_ONTVANGEN, GELD_ONTVANGEN].includes(Number(m.type))
+      const bedrag = Math.abs(Number(m.amount) || 0)
+      const factuur = m.invoiceNumber?.trim()
+      const label = relatie
+        ? `${relatie}${factuur ? ` · factuur ${factuur}` : ''}`
+        : schoon(c.d) || (factuur ? `Factuur ${factuur}` : erin ? 'Ontvangen' : 'Uitgegeven')
+      const vast = !erin && c.r ? (maandenPerRelatie.get(c.r)?.size ?? 0) >= 3 : false
+      return {
+        id: `eb-${m.id}`,
+        date: m.date.slice(0, 10),
+        amount: erin ? bedrag : -bedrag,
+        label,
+        clientId: erin ? klantVan(relatie) : undefined,
+        category: Number(m.type) === BETALING_ONTVANGEN ? 'omzet' : vast ? 'vaste lasten' : 'overig',
+      }
+    })
 
     // Facturen: open = in de openstaande posten; eerder binnengehaald en nu niet meer open = betaald
     const oudeFacturen = new Map((rijen ?? []).filter(r => r.collection === 'invoices' && r.item_id.startsWith('eb-')).map(r => [r.item_id, r.data as unknown as Invoice & { clientName?: string }]))
