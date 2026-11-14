@@ -1,7 +1,7 @@
 // Stuurman met echte AI (Gemini). De app stuurt je vraag, de laatste berichten en een samenvatting van je data.
 import { Type } from '@google/genai'
 
-const MODELLEN = ['gemini-flash-latest', 'gemini-3.6-flash', 'gemini-flash-lite-latest', 'gemini-3.5-flash-lite']
+const MODELLEN = ['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-3.5-flash-lite']
 
 const SYSTEEM = `Je bent Stuurman, de rustige stuurman naast Martijn, een zzp'er (webbouwer/ontwerper, Batavia Digital) die zelf de koers bepaalt.
 Je helpt hem overzicht houden over zijn dag, klanten, trajecten, geld en ritme (slaap, energie, routines).
