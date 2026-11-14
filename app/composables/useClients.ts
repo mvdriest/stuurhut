@@ -70,7 +70,7 @@ export function useClients() {
     }
     state.value.clients.unshift(c)
     if (i.projectName?.trim()) {
-      state.value.projects.push({ id: uid('pr'), clientId: id, name: i.projectName.trim(), status: i.status, progress: 0, budget: i.projectBudget ?? 0, hourlyRate: 85, billedHours: 0 })
+      state.value.projects.push({ id: uid('pr'), clientId: id, name: i.projectName.trim(), status: i.status, progress: 0, budget: i.projectBudget ?? 0, hourlyRate: MEERWERK_TARIEF, billedHours: 0 })
     }
     return state.value.clients[0]!
   }
@@ -85,7 +85,7 @@ export function useClients() {
     if (own && c.nextStep !== oldStep) own.nextStep = c.nextStep
     const p = projectsFor(id)[0]
     if (p && i.projectName?.trim()) Object.assign(p, { name: i.projectName.trim(), budget: i.projectBudget ?? p.budget, status: i.status })
-    else if (!p && i.projectName?.trim()) state.value.projects.push({ id: uid('pr'), clientId: id, name: i.projectName.trim(), status: i.status, progress: 0, budget: i.projectBudget ?? 0, hourlyRate: 85, billedHours: 0 })
+    else if (!p && i.projectName?.trim()) state.value.projects.push({ id: uid('pr'), clientId: id, name: i.projectName.trim(), status: i.status, progress: 0, budget: i.projectBudget ?? 0, hourlyRate: MEERWERK_TARIEF, billedHours: 0 })
   }
 
   /** Verwijdert klant en projecten. Geeft een functie terug om het ongedaan te maken. */

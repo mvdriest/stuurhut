@@ -12,6 +12,7 @@ export function stuurmanContext(s: AppState, extra: { page: string, suggestions:
   return {
     nu: { datum: vandaag, tijd: `${String(nu.getHours()).padStart(2, '0')}:${String(nu.getMinutes()).padStart(2, '0')}`, weekdag: nu.toLocaleDateString('nl-NL', { weekday: 'long' }), pagina: extra.page },
     werktijden: s.prefs.workHours,
+    tarief: `vaste prijs per project; meerwerk € ${MEERWERK_TARIEF} per uur excl. btw`,
     afspraken: s.events
       .filter(e => !e.cancelled && e.date >= addDays(vandaag, -1) && e.date <= over7)
       .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))

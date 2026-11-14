@@ -220,7 +220,8 @@ export interface Transaction {
   amount: number // positief = in, negatief = uit
   label: string
   clientId?: string
-  category: 'omzet' | 'vaste lasten' | 'abonnement' | 'overig'
+  /** prive = privé opgenomen of gestort: telt niet mee als omzet of kosten */
+  category: 'omzet' | 'vaste lasten' | 'abonnement' | 'overig' | 'prive'
 }
 
 export interface Invoice {

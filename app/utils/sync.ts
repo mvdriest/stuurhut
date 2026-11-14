@@ -192,7 +192,7 @@ export function fromSupabase(d: Loaded, base: AppState): AppState {
       status: x.status ?? (t.status === 'on_hold' ? 'afgerond' : 'lopend'),
       progress: stops?.total ? stops.done / stops.total : (x.progress ?? 0),
       budget: Number(t.bedrag_afgesproken ?? 0),
-      hourlyRate: x.hourlyRate ?? 85,
+      hourlyRate: x.hourlyRate ?? MEERWERK_TARIEF,
       billedHours: x.billedHours ?? 0,
       nextStep: t.eerstvolgende_actie?.trim() || undefined,
       waitingOn: t.wacht_op?.trim() || undefined,

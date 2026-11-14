@@ -8,6 +8,7 @@
 import type { AppState, ChatMessage, Destination, EditorRequest, SuggestionTone, GapOption, ISODate, PageKey, StuurmanQuestion, StuurmanSuggestion, Task, Time } from '~/types'
 import { addDays, diffDays, fromISO, planDays, relDay, todayISO, weekdayLong, weekdayShort } from './date'
 import { dec1, duration, euroRound } from './format'
+import { MEERWERK_TARIEF } from './constants'
 import { domainOfTask, guessDomain } from './domain'
 import { firstStepFor, stuckAssignments, stuckTasks } from './firststep'
 import { anchorTime, clock, clockMin, isWeekend, minText, weekendLatest } from './sleep'
@@ -271,22 +272,32 @@ export function buildSuggestions(ctx: StuurmanContext): StuurmanSuggestion[] {
     })
   }
 
-  // Financiën: meer verdienen
-  if (!s.opportunities.some(o => o.title.startsWith('Onderhoudsabonnement'))) {
+  // Financiën: meer verdienen. Een vaste maandprijs voor onderhoud, gerekend met je eigen klanten en meerwerktarief.
+  const klanten = s.clients.length
+  if (klanten && !s.opportunities.some(o => o.title.startsWith('Onderhoudsabonnement'))) {
+    const nu = new Date()
+    const maanden = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(nu.getFullYear(), nu.getMonth() - i, 1)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    })
+    const stil = maanden.filter(m => !s.transactions.some(t => t.amount > 0 && t.category !== 'prive' && t.date.startsWith(m))).length
+    const perJaar = klanten * MEERWERK_TARIEF * 12
     out.push({
       id: 'onderhoud-abonnement',
-      meta: '+ € 2.700 per jaar',
+      meta: `+ ${euroRound(perJaar)} per jaar`,
       pages: ['financien', 'kansen'],
-      text: 'Je doet elke maand zo’n zes uur onderhoud voor oud-klanten zonder dat je het factureert. Zal ik een onderhoudsabonnement als kans bewaren?',
-      why: `Bij € 45 per site per maand en vijf sites is dat ${euroRound(45 * 5 * 12)} per jaar, voor werk dat je nu al doet.`,
+      text: stil >= 2
+        ? `In ${stil} van de laatste 6 maanden kwam er niets binnen. Een onderhoudsabonnement geeft je elke maand vaste inkomsten. Zal ik het als kans bewaren?`
+        : 'Een onderhoudsabonnement geeft je elke maand vaste inkomsten naast je projecten. Zal ik het als kans bewaren?',
+      why: `Gerekend met één uur per maand tegen je meerwerktarief van ${euroRound(MEERWERK_TARIEF)} voor je ${klanten} ${klanten === 1 ? 'klant' : 'klanten'}. Dat is ${euroRound(perJaar)} per jaar. Je bepaalt zelf welke klanten meedoen.`,
       acceptLabel: 'Bewaar als kans',
       action: {
         type: 'createOpportunity',
         title: 'Onderhoudsabonnement voor websites',
-        source: 'Financiën: onderhoud zonder vaste prijs',
-        revenue: 2700,
+        source: 'Financiën: vaste maandinkomsten',
+        revenue: perJaar,
         buildTime: '1 dag om uit te werken',
-        why: 'Je doet het werk al. Een vaste maandprijs maakt je inkomsten voorspelbaarder en je klanten weten waar ze aan toe zijn.',
+        why: 'Een vaste maandprijs maakt je inkomsten voorspelbaarder en je klanten weten waar ze aan toe zijn.',
       },
     })
   }

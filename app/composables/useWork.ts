@@ -67,7 +67,7 @@ export function useWork() {
       if (c && c.status === 'lead') c.status = 'lopend'
       const existing = clients.projectsFor(q.clientId).find(p => p.status === 'lead' || p.name === q.title)
       if (existing) Object.assign(existing, { status: 'lopend', budget: q.amount })
-      else state.value.projects.push({ id: uid('pr'), clientId: q.clientId, name: q.title, status: 'lopend', progress: 0, budget: q.amount, hourlyRate: 85, billedHours: 0 })
+      else state.value.projects.push({ id: uid('pr'), clientId: q.clientId, name: q.title, status: 'lopend', progress: 0, budget: q.amount, hourlyRate: MEERWERK_TARIEF, billedHours: 0 })
       c?.timeline.unshift({ id: uid('tl'), kind: 'notitie', date: today, title: `Akkoord op offerte: ${q.title}`, body: euro(q.amount) })
     }
   }

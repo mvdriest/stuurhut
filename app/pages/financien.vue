@@ -24,6 +24,8 @@ const insights = computed(() => {
 const earnMore = computed(() => stuurman.forPage('financien').find(s => s.id === 'onderhoud-abonnement'))
 const subs = computed(() => f.subscriptions.value.filter(s => s.kind === 'abonnement'))
 const fixed = computed(() => f.subscriptions.value.filter(s => s.kind === 'vaste last'))
+const { state } = useStore()
+const hasMaintenance = computed(() => state.value.opportunities.some(o => o.title.startsWith('Onderhoudsabonnement')))
 
 function remind(id: string) {
   const slot = f.planReminder(id)
@@ -98,17 +100,18 @@ function paid(id: string) {
           <h2 id="peruur" class="text-[17px]">Wat je per uur verdient</h2>
           <span class="text-[13px] text-muted">omzet zonder btw ÷ gewerkte uren</span>
         </div>
-        <p class="mb-4 text-[13.5px] text-muted">Je tarief is {{ euroRound(85) }}. Waar je eronder zakt, liep het uit.</p>
+        <p class="mb-4 text-[13.5px] text-muted">Je werkt met vaste prijzen en rekent {{ euroRound(MEERWERK_TARIEF) }} per uur voor meerwerk. Zakt een klant daaronder, dan kostte het meer uren dan je rekende.</p>
         <ul class="space-y-3">
+          <li v-if="!work.perHour.value.length" class="text-[14px] text-muted">Nog geen uren en omzet bij dezelfde klant. Schrijf je uren, dan zie je hier wat een vaste prijs je per uur opleverde.</li>
           <li v-for="r in work.perHour.value" :key="r.client.id">
             <NuxtLink :to="`/klanten?id=${r.client.id}`" class="-mx-2 block rounded-[12px] px-2 py-1 hover:bg-surface-2">
               <div class="flex items-center justify-between gap-3">
                 <span class="flex min-w-0 items-center gap-2.5"><UiAvatar :name="r.client.name" :tint="r.client.tint" :size="30" /><span class="truncate text-[14.5px]">{{ r.client.name }}</span><span class="text-[12.5px] text-muted">· {{ Math.round(r.hours) }} u</span></span>
-                <span class="num text-[15px]" :class="r.rate < 70 ? 'text-copper-ink' : ''">{{ euroRound(r.rate) }} / u</span>
+                <span class="num text-[15px]" :class="r.rate < MEERWERK_TARIEF ? 'text-copper-ink' : ''">{{ euroRound(r.rate) }} / u</span>
               </div>
               <div class="relative mt-2 h-2 rounded-full bg-surface-2">
-                <div class="h-full rounded-full" :class="r.rate < 70 ? 'bg-copper' : 'bg-green-bar'" :style="{ width: `${Math.min(100, (r.rate / 110) * 100)}%` }" />
-                <span class="absolute -top-1 h-4 w-0.5 rounded-full bg-ink" :style="{ left: `${(85 / 110) * 100}%` }" title="Je tarief" />
+                <div class="h-full rounded-full" :class="r.rate < MEERWERK_TARIEF ? 'bg-copper' : 'bg-green-bar'" :style="{ width: `${Math.min(100, (r.rate / 110) * 100)}%` }" />
+                <span class="absolute -top-1 h-4 w-0.5 rounded-full bg-ink" :style="{ left: `${(MEERWERK_TARIEF / 110) * 100}%` }" title="Je meerwerktarief" />
               </div>
             </NuxtLink>
           </li>
@@ -180,21 +183,27 @@ function paid(id: string) {
         <p class="num text-[28px] font-semibold tracking-[-0.02em]">{{ euro(f.monthlyFixed.value) }}<span class="text-[14px] font-medium text-muted"> per maand</span></p>
         <p class="label mt-4 mb-1">Vaste lasten</p>
         <ul class="divide-y divide-line">
-          <li v-for="s in fixed" :key="s.id" class="flex justify-between gap-3 py-2 text-[14.5px]"><span>{{ s.name }}</span><span class="num font-medium">{{ euro(s.monthly) }}</span></li>
+          <li v-if="!fixed.length" class="py-2 text-[14px] text-muted">Geen.</li>
+          <li v-for="s in fixed" :key="s.id" class="py-2 text-[14.5px]">
+            <div class="flex justify-between gap-3"><span>{{ s.name }}</span><span class="num font-medium">{{ euro(s.monthly) }}</span></div>
+            <p v-if="s.note" class="text-[12.5px] text-muted">{{ s.note }}</p>
+          </li>
         </ul>
         <p class="label mt-4 mb-1">Abonnementen</p>
         <ul class="divide-y divide-line">
+          <li v-if="!subs.length" class="py-2 text-[14px] text-muted">Geen.</li>
           <li v-for="s in subs" :key="s.id" class="py-2 text-[14.5px]">
             <div class="flex justify-between gap-3"><span>{{ s.name }}</span><span class="num font-medium">{{ euro(s.monthly) }}</span></div>
             <p v-if="s.note" class="text-[12.5px] text-copper-ink">{{ s.note }}</p>
           </li>
         </ul>
+        <p v-if="f.privateYear.value" class="mt-4 text-[13px] text-muted">Privé opgenomen dit jaar: <span class="num text-ink">{{ euroRound(f.privateYear.value) }}</span>. Telt niet mee als kosten.</p>
       </section>
 
       <!-- Meer verdienen -->
       <div class="lg:col-span-12" data-enter>
         <StuurmanCard v-if="earnMore" :suggestion="earnMore" />
-        <div v-else class="card p-6">
+        <div v-else-if="hasMaintenance" class="card p-6">
           <p class="lead text-[21px]">Het onderhoudsabonnement staat bij Kansen.</p>
           <NuxtLink to="/kansen" class="btn-sea mt-3">Naar Kansen</NuxtLink>
         </div>

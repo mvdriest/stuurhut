@@ -24,7 +24,7 @@ const STEPS = 5
 const weekTasks = computed(() => state.value.tasks.filter(t => t.date && t.date >= monday && t.date <= today))
 const stats = computed(() => {
   const events = state.value.events.filter(e => e.date >= monday && e.date <= today && !e.cancelled)
-  const revenue = state.value.transactions.filter(t => t.date >= monday && t.date <= today && t.amount > 0).reduce((s, t) => s + t.amount, 0)
+  const revenue = state.value.transactions.filter(t => t.date >= monday && t.date <= today && t.amount > 0 && t.category !== 'prive').reduce((s, t) => s + t.amount, 0)
   const work = state.value.rhythm.slice(-7).reduce((s, d) => s + d.workH, 0)
   const evenings = goals.value.find(g => g.id === 'g6')
   return [

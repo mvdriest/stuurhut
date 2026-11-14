@@ -2,7 +2,7 @@
 const BASIS = 'https://api.e-boekhouden.nl'
 
 export interface EbMutatieKort { id: number, type: number, date: string, invoiceNumber?: string, ledgerId?: number, amount: number, entryNumber?: string }
-export interface EbMutatie { id: number, type: number, date: string, description?: string, termOfPayment?: number, relationId?: number, invoiceNumber?: string }
+export interface EbMutatie { id: number, type: number, date: string, description?: string, termOfPayment?: number, relationId?: number, invoiceNumber?: string, rows?: { ledgerId?: number }[] }
 export interface EbOpenstaand { date: string, mutationId: number, invoiceNumber: string, relationId: number, relationCode?: string, company?: string, totalAmount: number, paidAmount: number, outstandingAmount: number }
 
 export async function ebSessie() {

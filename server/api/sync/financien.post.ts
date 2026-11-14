@@ -5,7 +5,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import { serverSupabaseServiceRole } from '#supabase/server'
 import type { Database, Json } from '../../../app/types/database.types'
-import type { Invoice, Transaction } from '../../../app/types'
+import type { Invoice, Subscription, Transaction } from '../../../app/types'
 
 const MIN_TUSSENPOZE_MS = 30 * 60 * 1000
 const MAANDEN_TERUG = 13
@@ -17,7 +17,14 @@ const GELD_ONTVANGEN = 5
 const GELD_UITGEGEVEN = 6
 const GELDSTROMEN = [BETALING_ONTVANGEN, BETALING_VERSTUURD, GELD_ONTVANGEN, GELD_UITGEGEVEN]
 
-interface Cache { mutaties: Record<string, { d?: string, r?: number, t?: number }>, relaties: Record<string, string> }
+// d = omschrijving, r = relatie, t = betaaltermijn, l = grootboekrekeningen van de regels
+interface Cache { mutaties: Record<string, { d?: string, r?: number, t?: number, l?: number[] }>, relaties: Record<string, string> }
+
+const DAG = 86400000
+/** Vaste lasten (geen abonnement): bank, verzekering, huur en dergelijke */
+const VASTE_LAST = /bank|verzeker|huur|kvk|kamer van koophandel|belasting|energie|gemeente|pensioen/i
+/** Privé opgenomen of gestort: geen omzet en geen bedrijfskosten */
+const PRIVE = /priv[eé]/i
 
 function geheimKlopt(header: string | undefined, geheim: string) {
   if (!header || !geheim) return false
@@ -42,7 +49,7 @@ export default defineEventHandler(async (event) => {
   }
   if (!process.env.EBOEKHOUDEN_TOKEN) return { overgeslagen: true, reden: 'niet gekoppeld', gewijzigd: 0 }
 
-  const { data: rijen } = await admin.from('v2_items').select('collection, item_id, data').eq('user_id', userId).in('collection', ['_sync', '_eb', 'transactions', 'invoices'])
+  const { data: rijen } = await admin.from('v2_items').select('collection, item_id, data').eq('user_id', userId).in('collection', ['_sync', '_eb', 'transactions', 'invoices', 'subscriptions'])
   const status = rijen?.find(r => r.collection === '_sync' && r.item_id === 'financien')?.data as { at?: string } | undefined
   if (!viaCron && !getQuery(event).force && status?.at && Date.now() - new Date(status.at).getTime() < MIN_TUSSENPOZE_MS) {
     return { overgeslagen: true, at: status.at, gewijzigd: 0 }
@@ -55,21 +62,23 @@ export default defineEventHandler(async (event) => {
     vanaf.setMonth(vanaf.getMonth() - MAANDEN_TERUG, 1)
     const vanafISO = vanaf.toISOString().slice(0, 10)
 
-    const [mutaties, openstaand, { data: klanten }] = await Promise.all([
+    const [mutaties, openstaand, grootboek, { data: klanten }] = await Promise.all([
       eb.alles<EbMutatieKort>('/v1/mutation', { 'date[gte]': vanafISO }),
       eb.alles<EbOpenstaand>('/v1/mutation/invoice/outstanding', { credDeb: 'D' }),
+      eb.alles<{ id: number, code?: string, description?: string }>('/v1/ledger').catch(() => []),
       admin.from('klanten').select('id, naam').eq('user_id', userId),
     ])
+    const priveRekening = new Set(grootboek.filter(g => PRIVE.test(g.description ?? '')).map(g => g.id))
 
     // Omschrijving, relatie en betaaltermijn staan alleen in de details: eenmalig ophalen en bewaren
     const nodig = [...new Set([
       ...mutaties.filter(m => GELDSTROMEN.includes(Number(m.type))).map(m => m.id),
       ...openstaand.map(o => o.mutationId),
-    ])].filter(id => !cache.mutaties[id])
+    ])].filter(id => !cache.mutaties[id]?.l)
     await perStuk(nodig, 5, async (id) => {
       try {
         const m = await eb.get<EbMutatie>(`/v1/mutation/${id}`)
-        cache.mutaties[id] = { d: m.description?.trim() || undefined, r: m.relationId || undefined, t: m.termOfPayment || undefined }
+        cache.mutaties[id] = { d: m.description?.trim() || undefined, r: m.relationId || undefined, t: m.termOfPayment || undefined, l: [...new Set((m.rows ?? []).map(x => x.ledgerId).filter((x): x is number => !!x))] }
       }
       catch { /* volgende keer opnieuw */ }
     })
@@ -114,15 +123,43 @@ export default defineEventHandler(async (event) => {
         ? `${relatie}${factuur ? ` · factuur ${factuur}` : ''}`
         : schoon(c.d) || (factuur ? `Factuur ${factuur}` : erin ? 'Ontvangen' : 'Uitgegeven')
       const vast = !erin && c.r ? (maandenPerRelatie.get(c.r)?.size ?? 0) >= 3 : false
+      const prive = !c.r && ((c.l ?? []).some(l => priveRekening.has(l)) || PRIVE.test(c.d ?? ''))
       return {
         id: `eb-${m.id}`,
         date: m.date.slice(0, 10),
         amount: erin ? bedrag : -bedrag,
         label,
         clientId: erin ? klantVan(relatie) : undefined,
-        category: Number(m.type) === BETALING_ONTVANGEN ? 'omzet' : vast ? 'vaste lasten' : 'overig',
+        category: prive ? 'prive' : Number(m.type) === BETALING_ONTVANGEN ? 'omzet' : vast ? 'vaste lasten' : 'overig',
       }
     })
+
+    // Vaste lasten en abonnementen: per partij omgerekend naar een maandbedrag.
+    // Nog lopend = de laatste betaling is niet veel langer geleden dan de gewone tussenpoos.
+    const perRelatie = new Map<number, { naam: string, data: number[], totaal: number }>()
+    for (const t of transacties) {
+      const r = t.category === 'vaste lasten' ? cache.mutaties[t.id.slice(3)]?.r : undefined
+      if (!r) continue
+      const x = perRelatie.get(r) ?? { naam: cache.relaties[r] || t.label, data: [], totaal: 0 }
+      x.data.push(new Date(`${t.date}T12:00:00Z`).getTime())
+      x.totaal += -t.amount
+      perRelatie.set(r, x)
+    }
+    const abonnementen: Subscription[] = []
+    for (const [r, x] of perRelatie) {
+      x.data.sort((a, b) => a - b)
+      const eerste = x.data[0]!
+      const laatste = x.data.at(-1)!
+      const poos = x.data.length > 1 ? (laatste - eerste) / (x.data.length - 1) : 30 * DAG
+      if (Date.now() - laatste > poos * 1.5 + 10 * DAG) continue
+      abonnementen.push({
+        id: `eb-r${r}`,
+        name: x.naam,
+        monthly: Math.round(x.totaal / ((laatste - eerste + poos) / (30.44 * DAG)) * 100) / 100,
+        kind: VASTE_LAST.test(x.naam) ? 'vaste last' : 'abonnement',
+        ...(poos > 45 * DAG ? { note: `Eens per ${Math.round(poos / (30.44 * DAG))} maanden, omgerekend per maand` } : {}),
+      })
+    }
 
     // Facturen: open = in de openstaande posten; eerder binnengehaald en nu niet meer open = betaald
     const oudeFacturen = new Map((rijen ?? []).filter(r => r.collection === 'invoices' && r.item_id.startsWith('eb-')).map(r => [r.item_id, r.data as unknown as Invoice & { clientName?: string }]))
@@ -150,7 +187,7 @@ export default defineEventHandler(async (event) => {
     const bestaand = new Map((rijen ?? []).filter(r => ['transactions', 'invoices'].includes(r.collection)).map(r => [`${r.collection}|${r.item_id}`, JSON.stringify(r.data)]))
     const at = new Date().toISOString()
     const schrijf: Database['public']['Tables']['v2_items']['Insert'][] = []
-    for (const [collection, lijst] of [['transactions', transacties], ['invoices', [...facturen.values()]]] as const) {
+    for (const [collection, lijst] of [['transactions', transacties], ['invoices', [...facturen.values()]], ['subscriptions', abonnementen]] as const) {
       for (const item of lijst) {
         const data = JSON.parse(JSON.stringify(item)) as Json
         if (bestaand.get(`${collection}|${item.id}`) !== JSON.stringify(data)) schrijf.push({ user_id: userId, collection, item_id: item.id, data, updated_at: at })
@@ -164,12 +201,16 @@ export default defineEventHandler(async (event) => {
     const nuIds = new Set(transacties.map(t => t.id))
     const weg = (rijen ?? []).filter(r => r.collection === 'transactions' && r.item_id.startsWith('eb-') && !nuIds.has(r.item_id) && String((r.data as { date?: string }).date ?? '') >= vanafISO).map(r => r.item_id)
     if (weg.length) await admin.from('v2_items').delete().eq('user_id', userId).eq('collection', 'transactions').in('item_id', weg)
+    // Gestopte vaste lasten
+    const abIds = new Set(abonnementen.map(a => a.id))
+    const gestopt = (rijen ?? []).filter(r => r.collection === 'subscriptions' && r.item_id.startsWith('eb-') && !abIds.has(r.item_id)).map(r => r.item_id)
+    if (gestopt.length) await admin.from('v2_items').delete().eq('user_id', userId).eq('collection', 'subscriptions').in('item_id', gestopt)
 
     await admin.from('v2_items').upsert([
       { user_id: userId, collection: '_eb', item_id: 'cache', data: cache as unknown as Json, updated_at: at },
       { user_id: userId, collection: '_sync', item_id: 'financien', data: { at, transacties: transacties.length, open: openstaand.length, nieuw: nodig.length }, updated_at: at },
     ])
-    return { at, transacties: transacties.length, openFacturen: openstaand.length, openBedrag: openstaand.reduce((s, o) => s + Number(o.outstandingAmount), 0), gewijzigd: schrijf.length + weg.length }
+    return { at, transacties: transacties.length, openFacturen: openstaand.length, openBedrag: openstaand.reduce((s, o) => s + Number(o.outstandingAmount), 0), gewijzigd: schrijf.length + weg.length + gestopt.length }
   }
   finally {
     await eb.stop()

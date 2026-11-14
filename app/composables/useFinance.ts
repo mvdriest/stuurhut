@@ -10,7 +10,7 @@ export function useFinance() {
     return Array.from({ length: 6 }, (_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      const tx = state.value.transactions.filter(t => t.date.startsWith(key))
+      const tx = state.value.transactions.filter(t => t.date.startsWith(key) && t.category !== 'prive')
       const income = tx.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0)
       const out = Math.abs(tx.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0))
       return { key, label: monthShort(d.getMonth()), name: monthName(d.getMonth()), income, out, net: income - out }
@@ -33,6 +33,8 @@ export function useFinance() {
   })
   const revenueFor = (clientId: string) => revenueByClient.value.find(r => r.client.id === clientId)?.amount ?? 0
 
+  /** Privé opgenomen dit jaar (telt niet als kosten) */
+  const privateYear = computed(() => Math.abs(state.value.transactions.filter(t => t.category === 'prive' && t.amount < 0 && t.date.startsWith(todayISO().slice(0, 4))).reduce((s, t) => s + t.amount, 0)))
   const subscriptions = computed(() => state.value.subscriptions)
   const monthlyFixed = computed(() => state.value.subscriptions.reduce((s, x) => s + x.monthly, 0))
 
@@ -63,5 +65,5 @@ export function useFinance() {
     state.value.transactions.push({ id: uid('tx'), date: todayISO(), amount: inv.amount, label: `Betaling ${inv.number}`, clientId: inv.clientId, category: 'omzet' })
   }
 
-  return { months, thisMonth, lastMonth, avgIncome, revenueByClient, revenueFor, subscriptions, monthlyFixed, openInvoices, openTotal, invoicesFor, planReminder, markPaid }
+  return { months, thisMonth, lastMonth, avgIncome, revenueByClient, revenueFor, subscriptions, monthlyFixed, privateYear, openInvoices, openTotal, invoicesFor, planReminder, markPaid }
 }
