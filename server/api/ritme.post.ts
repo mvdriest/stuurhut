@@ -91,7 +91,10 @@ export default defineEventHandler(async (event) => {
     : { sleepH: uren(body.sleep), bed: tijd(body.bed), woke: tijd(body.woke) }
   // Stappen zijn hele getallen: punten en spaties zijn duizendtallen ("6.512")
   const stappen = getal(typeof body.steps === 'string' ? body.steps.replace(/[.\s\u00a0']/g, '').replace(/,\d*$/, '') : body.steps)
-  const beweeg = getal(body.move) ?? (stappen === undefined ? undefined : stappen / 100)
+  // Meer dan 10 uur "beweegminuten" zijn eigenlijk stappen (oude opdracht met het veld move)
+  const move = getal(body.move)
+  const alsStappen = stappen ?? (move !== undefined && move > 600 ? move : undefined)
+  const beweeg = (move !== undefined && move <= 600 ? move : undefined) ?? (alsStappen === undefined ? undefined : alsStappen / 100)
 
   async function bewaar(dag: string, velden: Record<string, unknown>) {
     const schoon = Object.fromEntries(Object.entries(velden).filter(([, v]) => v !== undefined))
@@ -105,7 +108,7 @@ export default defineEventHandler(async (event) => {
 
   // Slaap hoort bij de ochtend waarop je wakker werd; beweging bij de dag ervoor (die is dan compleet)
   const nacht = await bewaar(datum, slaap)
-  const gisteren = await bewaar(dagErvoor(datum), { moveMin: beweeg === undefined ? undefined : Math.round(beweeg), steps: stappen === undefined ? undefined : Math.round(stappen) })
+  const gisteren = await bewaar(dagErvoor(datum), { moveMin: beweeg === undefined ? undefined : Math.round(beweeg), steps: alsStappen === undefined ? undefined : Math.round(alsStappen) })
 
   return {
     ok: true,
