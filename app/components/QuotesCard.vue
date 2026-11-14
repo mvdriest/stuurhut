@@ -8,6 +8,7 @@ const tasks = useTasks()
 const cal = useCalendar()
 const clients = useClients()
 const toast = useToast()
+const editor = useEditor()
 const list = computed(() => work.quotesFor(props.clientId).slice().reverse())
 const STATUS: Record<QuoteStatus, string> = { concept: 'bg-surface-3 text-ink', verstuurd: 'bg-cat-meeting text-cat-ink', akkoord: 'bg-cat-focus text-cat-ink', afgewezen: 'bg-copper-soft text-copper-ink' }
 const adding = ref(false)
@@ -15,7 +16,13 @@ const title = ref('')
 const amount = ref<number | undefined>()
 
 function set(id: string, s: QuoteStatus) {
+  const q = list.value.find(x => x.id === id)
   work.setQuoteStatus(id, s)
+  if (s === 'akkoord' && q) {
+    // Meteen de termijnen vastleggen bij het traject dat net ontstond
+    const p = clients.projectsFor(props.clientId).find(x => x.name === q.title) ?? clients.projectsFor(props.clientId).find(x => x.status !== 'afgerond')
+    if (p && !p.terms?.length) return editor.open({ kind: 'akkoord', prefill: { clientId: props.clientId, projectId: p.id } })
+  }
   toast.push({ text: s === 'akkoord' ? 'Akkoord. Het project staat klaar, de klant is nu lopend.' : s === 'verstuurd' ? 'Verstuurd. Over vijf dagen vraag ik of je iets hebt gehoord.' : 'Genoteerd.' })
 }
 function followUp(title: string) {
