@@ -32,6 +32,8 @@ function geheimKlopt(header: string | undefined, geheim: string) {
   const b = Buffer.from(`Bearer ${geheim}`)
   return a.length === b.length && timingSafeEqual(a, b)
 }
+/** JSON met gesorteerde sleutels: de database bewaart sleutels in een andere volgorde */
+const gelijkJson = (x: unknown): string => JSON.stringify(x, (_, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b))) : v))
 const plusDagen = (iso: string, n: number) => new Date(new Date(`${iso.slice(0, 10)}T12:00:00Z`).getTime() + n * 86400000).toISOString().slice(0, 10)
 
 export default defineEventHandler(async (event) => {
@@ -185,13 +187,13 @@ export default defineEventHandler(async (event) => {
     for (const [id, oud] of oudeFacturen) if (!facturen.has(id)) facturen.set(id, { ...oud, paid: true })
 
     // Wegschrijven: alleen wat anders is
-    const bestaand = new Map((rijen ?? []).filter(r => ['transactions', 'invoices'].includes(r.collection)).map(r => [`${r.collection}|${r.item_id}`, JSON.stringify(r.data)]))
+    const bestaand = new Map((rijen ?? []).filter(r => ['transactions', 'invoices'].includes(r.collection)).map(r => [`${r.collection}|${r.item_id}`, gelijkJson(r.data)]))
     const at = new Date().toISOString()
     const schrijf: Database['public']['Tables']['v2_items']['Insert'][] = []
     for (const [collection, lijst] of [['transactions', transacties], ['invoices', [...facturen.values()]], ['subscriptions', abonnementen]] as const) {
       for (const item of lijst) {
         const data = JSON.parse(JSON.stringify(item)) as Json
-        if (bestaand.get(`${collection}|${item.id}`) !== JSON.stringify(data)) schrijf.push({ user_id: userId, collection, item_id: item.id, data, updated_at: at })
+        if (bestaand.get(`${collection}|${item.id}`) !== gelijkJson(data)) schrijf.push({ user_id: userId, collection, item_id: item.id, data, updated_at: at })
       }
     }
     for (let i = 0; i < schrijf.length; i += 500) {
