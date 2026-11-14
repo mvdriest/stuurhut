@@ -682,17 +682,35 @@ export function gapOptions(ctx: StuurmanContext): GapOption[] {
 }
 
 // ---------- Inzichten ----------
-export function financeInsights(n: { avgIncome: number, thisIncome: number, thisOut: number, lastOut: number, lateCount: number, fixed: number, topShare: number, topName: string }) {
-  return {
-    good: [
-      { title: 'Je houdt elke maand iets over', body: `Zes maanden op rij meer in dan uit, gemiddeld ${euroRound(n.avgIncome)} omzet per maand.` },
-      { title: 'Je uitgaven dalen', body: `Deze maand ${euroRound(n.lastOut - n.thisOut)} minder uit dan vorige maand, zonder dat je iets hebt moeten laten.` },
-    ],
-    watch: [
-      { title: `${n.lateCount === 1 ? 'Eén factuur is' : `${n.lateCount} facturen zijn`} te laat`, body: 'Van Dijk Installatie is 12 dagen over de termijn. Meestal betalen ze na één herinnering.' },
-      { title: 'Veel hangt aan één klant', body: `${n.topName} is goed voor ${Math.round(n.topShare * 100)}% van je omzet. Dat is prima, zolang je het weet.` },
-    ],
+export interface FinanceInput {
+  months: { name: string, income: number, out: number }[]
+  late: { name: string, days: number }[]
+  topShare: number
+  topName: string
+}
+
+/** Wat goed gaat en waar je op let, alleen als de cijfers het laten zien. */
+export function financeInsights(n: FinanceInput) {
+  const good: { title: string, body: string }[] = []
+  const watch: { title: string, body: string }[] = []
+  const metData = n.months.filter(m => m.income || m.out)
+  const nu = n.months.at(-1)
+  const vorige = n.months.at(-2)
+  const plus = metData.filter(m => m.income > m.out).length
+  const gem = metData.length ? metData.reduce((s, m) => s + m.income, 0) / metData.length : 0
+
+  if (metData.length >= 3 && plus === metData.length) good.push({ title: 'Je houdt elke maand iets over', body: `${metData.length} maanden op rij meer in dan uit, gemiddeld ${euroRound(gem)} per maand binnen.` })
+  else if (metData.length >= 3 && plus >= metData.length / 2) good.push({ title: 'Meestal hou je iets over', body: `${plus} van de ${metData.length} maanden kwam er meer binnen dan eruit ging.` })
+  if (nu && vorige && vorige.out > 0 && nu.out < vorige.out) good.push({ title: 'Je uitgaven dalen', body: `Deze maand ${euroRound(vorige.out - nu.out)} minder uit dan in ${vorige.name}.` })
+
+  if (n.late.length) {
+    const l = [...n.late].sort((a, b) => b.days - a.days)[0]!
+    watch.push({ title: `${n.late.length === 1 ? 'Eén factuur is' : `${n.late.length} facturen zijn`} te laat`, body: `${l.name} is ${l.days} ${l.days === 1 ? 'dag' : 'dagen'} over de termijn. Een korte herinnering helpt meestal.` })
   }
+  const zonder = metData.filter(m => !m.income).length
+  if (metData.length >= 3 && zonder >= 2) watch.push({ title: 'Inkomsten komen met tussenpozen', body: `In ${zonder} van de ${metData.length} maanden kwam er niets binnen. Houd een buffer aan voor de stille maanden.` })
+  if (n.topName && n.topShare >= 0.5) watch.push({ title: 'Veel hangt aan één klant', body: `${n.topName} is goed voor ${Math.round(n.topShare * 100)}% van je omzet. Dat is prima, zolang je het weet.` })
+  return { good, watch }
 }
 
 export function rhythmObservations() {

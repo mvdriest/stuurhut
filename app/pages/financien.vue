@@ -15,12 +15,8 @@ const delta = computed(() => m.value.income - f.lastMonth.value.income)
 const insights = computed(() => {
   const top = f.revenueByClient.value[0]
   return financeInsights({
-    avgIncome: f.avgIncome.value,
-    thisIncome: m.value.income,
-    thisOut: m.value.out,
-    lastOut: f.lastMonth.value.out,
-    lateCount: f.openInvoices.value.filter(i => i.daysLate > 0).length,
-    fixed: f.monthlyFixed.value,
+    months: f.months.value,
+    late: f.openInvoices.value.filter(i => i.daysLate > 0).map(i => ({ name: i.client.name, days: i.daysLate })),
     topShare: top?.share ?? 0,
     topName: top?.client.name ?? '',
   })
@@ -78,6 +74,7 @@ function paid(id: string) {
               <p class="text-[15px] font-semibold">{{ g.title }}</p>
               <p class="line-clamp-2 text-[14px] leading-snug text-muted" :title="g.body">{{ g.body }}</p>
             </li>
+            <li v-if="!insights.good.length" class="text-[14px] text-muted">Nog te weinig maanden om iets over te zeggen.</li>
           </ul>
         </section>
         <section class="card p-5" aria-labelledby="letop" data-enter>
@@ -87,6 +84,7 @@ function paid(id: string) {
               <p class="text-[15px] font-semibold">{{ g.title }}</p>
               <p class="line-clamp-2 text-[14px] leading-snug text-muted" :title="g.body">{{ g.body }}</p>
             </li>
+            <li v-if="!insights.watch.length" class="text-[14px] text-muted">Niets bijzonders.</li>
           </ul>
         </section>
       </div>

@@ -2,6 +2,13 @@
 const emit = defineEmits<{ close: [] }>()
 defineProps<{ closeLabel?: string, closeIcon?: string }>()
 const { page, panel: current, questions, tab } = useStuurman()
+const { mode } = useStore()
+const chat = useChat()
+/** Met je eigen data beantwoordt de AI de vraag; in de demo het vaste antwoord. */
+function vraag(q: { question: string }) {
+  if (mode.value === 'echt') { tab.value = 'chat'; chat.send(q.question); return }
+  openQ.value = openQ.value === q.question ? null : q.question
+}
 const openQ = ref<string | null>(null)
 const openS = ref<string | null>(null)
 watch(page, () => { openQ.value = null; openS.value = null })
@@ -47,7 +54,7 @@ watch(current, (list) => { if (!list.some(s => s.id === openS.value)) openS.valu
           <h3 class="px-4 pt-4 pb-2 text-[13px] text-muted">Snel gevraagd</h3>
           <ul class="divide-y divide-line">
             <li v-for="q in questions" :key="q.question">
-              <button type="button" class="flex min-h-12 w-full items-center gap-3 px-4 text-left text-[15px] hover:bg-surface-2" :aria-expanded="openQ === q.question" @click="openQ = openQ === q.question ? null : q.question">
+              <button type="button" class="flex min-h-12 w-full items-center gap-3 px-4 text-left text-[15px] hover:bg-surface-2" :aria-expanded="openQ === q.question" @click="vraag(q)">
                 <span class="flex-1">{{ q.question }}</span>
                 <Icon name="tabler:chevron-down" class="size-4 text-muted transition-transform" :class="openQ === q.question ? 'rotate-180' : ''" />
               </button>
@@ -59,7 +66,7 @@ watch(current, (list) => { if (!list.some(s => s.id === openS.value)) openS.valu
           </button>
         </section>
       </div>
-      <p class="border-t border-line px-5 py-3 text-[12.5px] text-muted">Voorstellen en antwoorden zijn nu voorgeprogrammeerd. Hier komt later de echte {{ AI_NAME }}.</p>
+      <p v-if="mode === 'demo'" class="border-t border-line px-5 py-3 text-[12.5px] text-muted">Voorstellen en antwoorden zijn nu voorgeprogrammeerd. Hier komt later de echte {{ AI_NAME }}.</p>
     </template>
   </div>
 </template>
