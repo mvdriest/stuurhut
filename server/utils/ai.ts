@@ -4,7 +4,7 @@ const MODEL = 'gemini-flash-lite-latest'
 
 let _ai: GoogleGenAI | undefined
 
-function getClient() {
+export function getClient() {
   if (_ai) return _ai
 
   const config = useRuntimeConfig()

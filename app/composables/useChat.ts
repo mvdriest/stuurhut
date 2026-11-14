@@ -1,12 +1,12 @@
-// Chat met Stuurman. Nu: voorgeprogrammeerde antwoorden uit stuurman.mock.ts.
-// Later: dezelfde functie praat met de echte AI.
+// Chat met Stuurman. Opdrachten ("Nieuwe afspraak: …", "Onthoud: …", dagstart) handelt de app zelf af;
+// al het andere beantwoordt de AI met jouw data. In de demo, of als de AI niet bereikbaar is: vaste antwoorden.
 import type { ChatMessage } from '~/types'
 import { chatReply, CHAT_STARTERS, type ChatContext } from '~/utils/stuurman.mock'
 
 const typing = ref(false)
 
 export function useChat() {
-  const { state } = useStore()
+  const { state, mode } = useStore()
   const stuurman = useStuurman()
   const cal = useCalendar()
   const tasks = useTasks()
@@ -59,6 +59,18 @@ export function useChat() {
     push({ role: 'user', text: t })
     typing.value = true
     const reply = chatReply(t, context())
+    const doetIets = !!(reply.form || reply.capture || reply.suggestion)
+    if (mode.value === 'echt' && !doetIets) {
+      const geschiedenis = state.value.chat.slice(-13, -1).map(m => ({ rol: m.role, tekst: m.text }))
+      $fetch<{ tekst: string, chips: string[] }>('/api/stuurman/chat', {
+        method: 'POST',
+        body: { vraag: t, geschiedenis, context: stuurmanContext(state.value, { page: stuurman.page.value, suggestions: stuurman.all.value }) },
+      })
+        .then(r => push({ role: 'stuurman', text: r.tekst, chips: r.chips.length ? r.chips : undefined }))
+        .catch(() => push({ role: 'stuurman', text: `Ik kan de AI nu niet bereiken. ${reply.text}`, chips: reply.chips }))
+        .finally(() => { typing.value = false })
+      return
+    }
     // Even "nadenken": kort, zodat het niet ophoudt.
     setTimeout(() => {
       if (reply.capture) inbox.add(reply.capture)

@@ -15,8 +15,11 @@ const ROUTE_PAGE: Record<string, PageKey> = {
   '/admin': 'admin',
 }
 
+const aiLine = ref<{ datum: string, zin: string } | null>(null)
+let aiLineBusy = false
+
 export function useStuurman() {
-  const { state } = useStore()
+  const { state, mode } = useStore()
   const route = useRoute()
   const cal = useCalendar()
   const tasks = useTasks()
@@ -97,7 +100,28 @@ export function useStuurman() {
     if (page.value === 'financien') return current.value.filter(s => s.id !== 'onderhoud-abonnement')
     return current.value
   })
-  const line = computed(() => dayLine(ctx.value))
+  const line = computed(() => (mode.value === 'echt' && aiLine.value?.datum === todayISO() ? aiLine.value.zin : dayLine(ctx.value)))
+
+  /** De AI-dagzin: één keer per dag ophalen, bewaard op dit toestel. */
+  async function loadAiLine() {
+    if (mode.value !== 'echt' || aiLineBusy) return
+    const datum = todayISO()
+    if (aiLine.value?.datum === datum) return
+    try {
+      const bewaard = JSON.parse(localStorage.getItem('stuurman-dagzin') ?? 'null') as { datum: string, zin: string } | null
+      if (bewaard?.datum === datum) { aiLine.value = bewaard; return }
+    }
+    catch { /* geen opslag */ }
+    aiLineBusy = true
+    try {
+      const { zin } = await $fetch<{ zin: string }>('/api/stuurman/dag', { method: 'POST', body: { context: stuurmanContext(state.value, { page: 'thuis', suggestions: all.value }) } })
+      aiLine.value = { datum, zin }
+      try { localStorage.setItem('stuurman-dagzin', JSON.stringify(aiLine.value)) }
+      catch { /* geen opslag */ }
+    }
+    catch { /* dan blijft de vaste zin staan */ }
+    finally { aiLineBusy = false }
+  }
   const questions = computed(() => QUESTIONS.filter(q => q.page === page.value))
   const gap = computed(() => state.value.events.find(e => e.cancelled && !state.value.gapResolved[e.id]) ?? null)
   const gapChoices = computed(() => gapOptions(ctx.value))
@@ -288,5 +312,5 @@ export function useStuurman() {
     toast.push({ text: option === 'vrij' ? 'Gat vrijgehouden. Geniet ervan.' : `Gevuld: ${choice?.title}.` })
   }
 
-  return { open, tab, openChat, page, current, panel, forPage, all, line, questions, accept, dismiss, gap, gapChoices, resolveGap }
+  return { open, tab, openChat, page, current, panel, forPage, all, line, loadAiLine, questions, accept, dismiss, gap, gapChoices, resolveGap }
 }
