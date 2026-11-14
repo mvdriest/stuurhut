@@ -437,7 +437,7 @@ Laat alles wat niet genoemd wordt op null. Geef alleen geldige JSON terug volgen
 export async function genereerMetTerugval(
   modellen: string[],
   params: Omit<Parameters<GoogleGenAI['models']['generateContent']>[0], 'model'>,
-  timeoutMs = 8000,
+  timeoutMs = 10000,
 ) {
   const ai = getClient()
   let laatste: unknown
