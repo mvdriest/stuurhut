@@ -148,6 +148,17 @@ export function useSync() {
     }
   }
 
+  /** Je boekhouding uit e-Boekhouden (de server doet dit hooguit elk half uur). Stil als het niet lukt. */
+  async function syncFinancien(force = false) {
+    try {
+      const r = await $fetch<{ gewijzigd: number }>('/api/sync/financien', { method: 'POST', query: force ? { force: 1 } : {} })
+      if (r.gewijzigd) queue = queue.then(flush).then(load)
+    }
+    catch (e) {
+      console.warn('e-Boekhouden', e)
+    }
+  }
+
   function schedule() {
     clearTimeout(timer)
     timer = setTimeout(() => { queue = queue.then(flush) }, 600)
@@ -157,13 +168,14 @@ export function useSync() {
   function start() {
     if (started) return
     started = true
-    load().then(() => syncAgenda())
+    load().then(() => { syncAgenda(); syncFinancien() })
     watch(real, () => { if (ready.value) schedule() }, { deep: true })
     // Terug naar de app: even ophalen wat er intussen veranderde (bijv. via Telegram)
     useEventListener(document, 'visibilitychange', () => {
       if (document.visibilityState === 'visible' && ready.value && !saving.value) {
         queue = queue.then(flush).then(load)
         syncAgenda()
+        syncFinancien()
       }
     })
   }
@@ -177,5 +189,5 @@ export function useSync() {
     real.value = createEmpty()
   }
 
-  return { ready, loading, saving, error, agenda, syncAgenda, start, stop, reload: () => (queue = queue.then(flush).then(load)) }
+  return { ready, loading, saving, error, agenda, syncAgenda, syncFinancien, start, stop, reload: () => (queue = queue.then(flush).then(load)) }
 }

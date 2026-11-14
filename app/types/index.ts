@@ -231,6 +231,8 @@ export interface Invoice {
   sentOn: ISODate
   due: ISODate
   paid?: boolean
+  /** Naam uit e-Boekhouden, als de klant (nog) niet in Stuurhut staat */
+  clientName?: string
   reminderPlanned?: boolean
 }
 

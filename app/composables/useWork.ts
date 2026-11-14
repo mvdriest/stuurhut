@@ -38,7 +38,7 @@ export function useWork() {
     if (!p) return null
     const s = stats(p)
     if (s.billable <= 0) return null
-    const nums = state.value.invoices.map(i => Number(i.number.split('-').pop()))
+    const nums = state.value.invoices.map(i => Number(i.number.split('-').pop())).filter(Number.isFinite)
     const number = `F-${today.slice(0, 4)}-${String(Math.max(0, ...nums) + 1).padStart(3, '0')}`
     const amount = Math.round(s.billableAmount * (1 + state.value.prefs.tax.vat) * 100) / 100
     const inv = { id: uid('f'), number, clientId: p.clientId, amount, sentOn: today, due: addDays(today, 30) }

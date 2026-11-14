@@ -39,7 +39,7 @@ export function useFinance() {
   const openInvoices = computed(() =>
     state.value.invoices
       .filter(i => !i.paid)
-      .map(i => ({ ...i, client: clients.byId(i.clientId)!, daysLate: Math.max(0, diffDays(todayISO(), i.due)), daysLeft: diffDays(i.due, todayISO()) }))
+      .map(i => ({ ...i, client: clients.byId(i.clientId) ?? { id: '', name: i.clientName || 'Onbekende klant' }, daysLate: Math.max(0, diffDays(todayISO(), i.due)), daysLeft: diffDays(i.due, todayISO()) }))
       .sort((a, b) => a.due.localeCompare(b.due)),
   )
   const openTotal = computed(() => openInvoices.value.reduce((s, i) => s + i.amount, 0))
@@ -51,7 +51,7 @@ export function useFinance() {
     const slot = cal.findSlot(15)
     if (!slot) return null
     const c = clients.byId(inv.clientId)
-    tasks.add({ title: `Herinnering factuur ${inv.number} (${c?.name})`, durationMin: 15, kind: 'admin', invoiceId, date: slot.date, start: slot.start, important: slot.date === todayISO() })
+    tasks.add({ title: `Herinnering factuur ${inv.number} (${c?.name ?? inv.clientName ?? 'klant'})`, durationMin: 15, kind: 'admin', invoiceId, date: slot.date, start: slot.start, important: slot.date === todayISO() })
     inv.reminderPlanned = true
     return slot
   }
