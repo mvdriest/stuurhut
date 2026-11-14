@@ -1,5 +1,5 @@
 // De dagzin bovenaan Vandaag, geschreven door de AI. De app bewaart hem per dag, zodat dit één keer per dag gebeurt.
-const MODELLEN = ['gemini-flash-latest', 'gemini-flash-lite-latest']
+const MODELLEN = ['gemini-flash-latest', 'gemini-3.6-flash', 'gemini-flash-lite-latest', 'gemini-3.5-flash-lite']
 
 export default defineEventHandler(async (event) => {
   await requireSupabaseUser(event)
