@@ -187,7 +187,7 @@ export default defineEventHandler(async (event) => {
     for (const [id, oud] of oudeFacturen) if (!facturen.has(id)) facturen.set(id, { ...oud, paid: true })
 
     // Wegschrijven: alleen wat anders is
-    const bestaand = new Map((rijen ?? []).filter(r => ['transactions', 'invoices'].includes(r.collection)).map(r => [`${r.collection}|${r.item_id}`, gelijkJson(r.data)]))
+    const bestaand = new Map((rijen ?? []).filter(r => ['transactions', 'invoices', 'subscriptions'].includes(r.collection)).map(r => [`${r.collection}|${r.item_id}`, gelijkJson(r.data)]))
     const at = new Date().toISOString()
     const schrijf: Database['public']['Tables']['v2_items']['Insert'][] = []
     for (const [collection, lijst] of [['transactions', transacties], ['invoices', [...facturen.values()]], ['subscriptions', abonnementen]] as const) {
