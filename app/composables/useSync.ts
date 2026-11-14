@@ -37,6 +37,10 @@ export function useSync() {
       // Eerst de momentopname, dan pas de state: zo telt het laden niet als wijziging.
       last = snapshot(next)
       real.value = next
+      // Eigen afspraken die nog niet in je Apple-agenda staan (bijv. gemaakt in een oudere versie)
+      const gister = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+      const ontbreekt = next.events.filter(e => !e.bron && !e.cancelled && !e.icloud && e.date >= gister).map(e => e.id)
+      if (ontbreekt.length) schrijfAgenda({ upsert: ontbreekt, remove: [] })
       error.value = null
       ready.value = true
     }

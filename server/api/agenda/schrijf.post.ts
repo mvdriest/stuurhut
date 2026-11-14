@@ -87,6 +87,7 @@ export default defineEventHandler(async (event) => {
           })
           if (!res.ok) throw new Error(`status ${res.status}: ${(await res.text()).slice(0, 200)}`)
           opgeslagen++
+          await admin.from('afspraken').update({ extra: { ...x, icloud: new Date().toISOString() } }).eq('id', r.id).eq('user_id', user.id)
         }
         // Van privé naar zakelijk (of andersom): uit de andere agenda halen
         await verwijder(doelen[ander], r.id)

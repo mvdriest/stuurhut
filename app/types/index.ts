@@ -51,6 +51,8 @@ export interface CalendarEvent {
   agenda?: string
   /** Je hebt zelf privé/zakelijk of de klant gekozen: de sync laat dat staan */
   domainSet?: boolean
+  /** Wanneer Stuurhut deze afspraak in je Apple-agenda zette */
+  icloud?: string
 }
 
 export type Destination = 'inplannen' | 'klant' | 'kans' | 'weg'
