@@ -7,6 +7,8 @@ const { opportunities } = useOpportunities()
 const { unscheduled } = useTasks()
 const { open: openAssignments } = useAssignments()
 const toast = useToast()
+const push = usePush()
+onMounted(() => { if (account.mode.value === 'echt') push.vernieuw() })
 const D = useDomain()
 const Sl = useSleep()
 const editor = useEditor()
@@ -69,6 +71,10 @@ const counts = computed<Record<string, number>>(() => ({
       <button type="button" class="flex min-h-11 w-full items-center justify-center gap-3 rounded-[12px] text-[14.5px] text-muted hover:bg-surface-2 hover:text-ink xl:justify-start xl:px-3" title="Werktijden" @click="editor.open({ kind: 'werktijden' })">
         <Icon name="tabler:clock" class="size-5" />
         <span class="hidden flex-1 text-left xl:inline">Werktijden</span><span class="num hidden whitespace-nowrap text-[13px] xl:inline">{{ D.work.value.start }}–{{ D.work.value.end }}</span>
+      </button>
+      <button v-if="account.mode.value === 'echt' && push.status.value !== 'niet'" type="button" class="flex min-h-11 w-full items-center justify-center gap-3 rounded-[12px] text-[14.5px] hover:bg-surface-2 hover:text-ink xl:justify-start xl:px-3" :class="push.status.value === 'aan' ? 'text-sea' : 'text-muted'" :title="push.label.value" @click="push.wissel()">
+        <Icon :name="push.status.value === 'aan' ? 'tabler:bell' : 'tabler:bell-off'" class="size-5" />
+        <span class="hidden xl:inline">{{ push.label.value }}</span>
       </button>
       <button v-if="account.mode.value === 'demo'" type="button" class="flex min-h-11 w-full items-center justify-center gap-3 rounded-[12px] text-[14.5px] text-muted hover:bg-surface-2 hover:text-ink xl:justify-start xl:px-3" title="Zet testdata terug" @click="account.resetDemo">
         <Icon name="tabler:refresh" class="size-5" />

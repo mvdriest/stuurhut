@@ -5,6 +5,8 @@ const editor = useEditor()
 const { count } = useInbox()
 const toast = useToast()
 const more = ref(false)
+const push = usePush()
+onMounted(() => { if (account.mode.value === 'echt') push.vernieuw() })
 const main = NAV.slice(0, 4)
 const extra = NAV.slice(4)
 const isActive = (to: string) => (to === '/' ? route.path === '/' : route.path.startsWith(to))
@@ -36,6 +38,10 @@ watch(() => route.fullPath, () => { more.value = false })
         <button type="button" class="flex min-h-12 w-full items-center gap-3 rounded-[14px] px-3 text-[15px] text-muted" @click="more = false; editor.open({ kind: 'werktijden' })">
           <Icon name="tabler:clock" class="size-5" />
           Werktijden
+        </button>
+        <button v-if="account.mode.value === 'echt' && push.status.value !== 'niet'" type="button" class="flex min-h-12 w-full items-center gap-3 rounded-[14px] px-3 text-[15px]" :class="push.status.value === 'aan' ? 'text-sea' : 'text-muted'" @click="push.wissel()">
+          <Icon :name="push.status.value === 'aan' ? 'tabler:bell' : 'tabler:bell-off'" class="size-5" />
+          {{ push.label.value }}
         </button>
         <button v-if="account.mode.value === 'demo'" type="button" class="flex min-h-12 w-full items-center gap-3 rounded-[14px] px-3 text-[15px] font-medium text-muted" @click="more = false; account.resetDemo()">
           <Icon name="tabler:refresh" class="size-5" />

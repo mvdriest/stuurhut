@@ -20,6 +20,8 @@ export default defineNuxtConfig({
     telegramAllowedUserId: '',
     cronSecret: '',
     ritmeToken: '',
+    vapidPrivateKey: '',
+    public: { vapidPublicKey: '' },
   },
 
   css: ['~/assets/css/main.css'],
@@ -56,7 +58,7 @@ export default defineNuxtConfig({
     serverBundle: false,
     clientBundle: {
       scan: true,
-      icons: ['tabler:alert-circle', 'tabler:arrow-right', 'tabler:arrow-up-right', 'tabler:bolt', 'tabler:briefcase', 'tabler:bulb', 'tabler:calendar-event', 'tabler:calendar-week', 'tabler:check', 'tabler:chevron-left', 'tabler:coin-euro', 'tabler:dots', 'tabler:grip-vertical', 'tabler:info-circle', 'tabler:receipt-tax', 'tabler:pig-money', 'tabler:send', 'tabler:file-invoice', 'tabler:clipboard-list', 'tabler:home-2', 'tabler:id', 'tabler:shield', 'tabler:car', 'tabler:book', 'tabler:player-play', 'tabler:player-pause', 'tabler:pencil', 'tabler:repeat', 'tabler:user-plus', 'tabler:arrow-up', 'tabler:message-circle', 'tabler:flag', 'tabler:sun', 'tabler:checkbox', 'tabler:receipt', 'tabler:heart', 'tabler:map-pin', 'tabler:clock', 'tabler:calendar', 'tabler:chevron-down', 'tabler:home', 'tabler:inbox', 'tabler:layout-sidebar-right', 'tabler:leaf', 'tabler:mail', 'tabler:messages', 'tabler:microphone', 'tabler:moon', 'tabler:note', 'tabler:plus', 'tabler:refresh', 'tabler:search', 'tabler:steering-wheel', 'tabler:trash', 'tabler:trending-down', 'tabler:trending-up', 'tabler:users', 'tabler:walk', 'tabler:wave-sine', 'tabler:x', 'tabler:layout-kanban', 'tabler:minus', 'tabler:moon-stars', 'tabler:device-laptop', 'tabler:sunrise', 'tabler:stethoscope', 'tabler:history', 'tabler:logout', 'tabler:lock', 'tabler:hourglass', 'tabler:route'],
+      icons: ['tabler:alert-circle', 'tabler:arrow-right', 'tabler:arrow-up-right', 'tabler:bolt', 'tabler:briefcase', 'tabler:bulb', 'tabler:calendar-event', 'tabler:calendar-week', 'tabler:check', 'tabler:chevron-left', 'tabler:coin-euro', 'tabler:dots', 'tabler:grip-vertical', 'tabler:info-circle', 'tabler:receipt-tax', 'tabler:pig-money', 'tabler:send', 'tabler:file-invoice', 'tabler:clipboard-list', 'tabler:home-2', 'tabler:id', 'tabler:shield', 'tabler:car', 'tabler:book', 'tabler:player-play', 'tabler:player-pause', 'tabler:pencil', 'tabler:repeat', 'tabler:user-plus', 'tabler:arrow-up', 'tabler:message-circle', 'tabler:flag', 'tabler:sun', 'tabler:checkbox', 'tabler:receipt', 'tabler:heart', 'tabler:map-pin', 'tabler:clock', 'tabler:calendar', 'tabler:chevron-down', 'tabler:home', 'tabler:inbox', 'tabler:layout-sidebar-right', 'tabler:leaf', 'tabler:mail', 'tabler:messages', 'tabler:microphone', 'tabler:moon', 'tabler:note', 'tabler:plus', 'tabler:refresh', 'tabler:search', 'tabler:steering-wheel', 'tabler:trash', 'tabler:trending-down', 'tabler:trending-up', 'tabler:users', 'tabler:walk', 'tabler:wave-sine', 'tabler:x', 'tabler:layout-kanban', 'tabler:minus', 'tabler:moon-stars', 'tabler:device-laptop', 'tabler:sunrise', 'tabler:stethoscope', 'tabler:history', 'tabler:logout', 'tabler:lock', 'tabler:hourglass', 'tabler:route', 'tabler:bell', 'tabler:bell-off'],
       sizeLimitKb: 512,
     },
   },
@@ -78,7 +80,7 @@ export default defineNuxtConfig({
         { src: '/pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
       ],
     },
-    workbox: { navigateFallback: '/', navigateFallbackDenylist: [/^\/api\//] },
+    workbox: { navigateFallback: '/', navigateFallbackDenylist: [/^\/api\//], importScripts: ['/push-sw.js'] },
     devOptions: { enabled: false },
   },
 })
