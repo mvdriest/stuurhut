@@ -155,7 +155,8 @@ export default defineEventHandler(async (event) => {
       abonnementen.push({
         id: `eb-r${r}`,
         name: x.naam,
-        monthly: Math.round(x.totaal / ((laatste - eerste + poos) / (30.44 * DAG)) * 100) / 100,
+        // Elke maand: gewoon het gemiddelde bedrag. Minder vaak: omrekenen naar een maandbedrag.
+        monthly: Math.round((poos <= 45 * DAG ? x.totaal / x.data.length : x.totaal / ((laatste - eerste + poos) / (30.44 * DAG))) * 100) / 100,
         kind: VASTE_LAST.test(x.naam) ? 'vaste last' : 'abonnement',
         ...(poos > 45 * DAG ? { note: `Eens per ${Math.round(poos / (30.44 * DAG))} maanden, omgerekend per maand` } : {}),
       })
