@@ -12,7 +12,7 @@ export function useFinance() {
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       const tx = state.value.transactions.filter(t => t.date.startsWith(key))
       const income = tx.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0)
-      const out = -tx.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0)
+      const out = Math.abs(tx.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0))
       return { key, label: monthShort(d.getMonth()), name: monthName(d.getMonth()), income, out, net: income - out }
     })
   })
