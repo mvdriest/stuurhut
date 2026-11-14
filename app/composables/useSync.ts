@@ -105,6 +105,7 @@ export function useSync() {
       }
       last = now
       error.value = null
+      schrijfAgenda(changed('events'))
     }
     catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -115,6 +116,15 @@ export function useSync() {
     finally {
       saving.value--
     }
+  }
+
+  /** Eigen afspraken ook in je Apple-agenda zetten (de server slaat afspraken uit je agenda over). */
+  function schrijfAgenda(d: { upsert: string[], remove: string[] }) {
+    const opslaan = d.upsert.filter(id => !real.value.events.find(e => e.id === id)?.bron)
+    if (!opslaan.length && !d.remove.length) return
+    $fetch<{ ok: boolean, fouten?: string[] }>('/api/agenda/schrijf', { method: 'POST', body: { opslaan, weg: d.remove } })
+      .then((r) => { if (!r.ok) toast.push({ text: `Niet alles kwam in je Apple-agenda: ${r.fouten?.[0] ?? 'onbekende fout'}` }) })
+      .catch((e) => { toast.push({ text: `Je Apple-agenda bijwerken lukte niet (${e?.data?.statusMessage ?? e?.message ?? e}).` }) })
   }
 
   /** Je agenda's ophalen (de server slaat over als het net nog gebeurd is). */

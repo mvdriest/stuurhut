@@ -44,7 +44,8 @@ export default defineEventHandler(async (event) => {
   const totDatum = tot.toISOString().slice(0, 10)
 
   const { bronnen, fouten } = await haalBronnen(van, tot)
-  const nieuw = bronnen.flatMap(b => voorvallen(b, van, tot))
+  // Afspraken die Stuurhut zelf in iCloud zette (UID stuurhut-…) staan er al: niet dubbel ophalen
+  const nieuw = bronnen.flatMap(b => voorvallen(b, van, tot)).filter(v => !v.extern.startsWith('stuurhut-'))
 
   // Wat er al staat, om jouw eigen keuzes (privé/zakelijk, klant) te bewaren
   const [{ data: bestaand }, { data: klanten }] = await Promise.all([
