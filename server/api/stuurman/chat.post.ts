@@ -1,7 +1,7 @@
 // Stuurman met echte AI (Gemini). De app stuurt je vraag, de laatste berichten en een samenvatting van je data.
 import { Type } from '@google/genai'
 
-const MODEL = 'gemini-flash-latest'
+const MODELLEN = ['gemini-flash-latest', 'gemini-flash-lite-latest']
 
 const SYSTEEM = `Je bent Stuurman, de rustige stuurman naast Martijn, een zzp'er (webbouwer/ontwerper, Batavia Digital) die zelf de koers bepaalt.
 Je helpt hem overzicht houden over zijn dag, klanten, trajecten, geld en ritme (slaap, energie, routines).
@@ -34,9 +34,7 @@ export default defineEventHandler(async (event) => {
   }))
   const context = JSON.stringify(body.context ?? {}).slice(0, 60000)
 
-  const ai = getClient()
-  const res = await ai.models.generateContent({
-    model: MODEL,
+  const res = await genereerMetTerugval(MODELLEN, {
     contents: [
       ...geschiedenis,
       { role: 'user', parts: [{ text: `Mijn data nu (JSON):\n${context}\n\nMijn vraag: ${vraag}` }] },

@@ -432,3 +432,24 @@ Laat alles wat niet genoemd wordt op null. Geef alleen geldige JSON terug volgen
 
   return JSON.parse(text)
 }
+
+/** Probeer modellen op volgorde: is er één overbelast (503/429) of te traag, dan het volgende. */
+export async function genereerMetTerugval(
+  modellen: string[],
+  params: Omit<Parameters<GoogleGenAI['models']['generateContent']>[0], 'model'>,
+  timeoutMs = 20000,
+) {
+  const ai = getClient()
+  let laatste: unknown
+  for (const model of modellen) {
+    try {
+      return await ai.models.generateContent({ ...params, model, config: { ...params.config, httpOptions: { timeout: timeoutMs } } })
+    }
+    catch (e) {
+      laatste = e
+      const status = (e as { status?: number }).status
+      if (status && ![429, 500, 503, 504].includes(status)) throw e
+    }
+  }
+  throw laatste
+}
