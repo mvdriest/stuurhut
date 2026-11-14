@@ -44,8 +44,13 @@ export default defineEventHandler(async (event) => {
   const totDatum = tot.toISOString().slice(0, 10)
 
   const { bronnen, fouten } = await haalBronnen(van, tot)
-  // Afspraken die Stuurhut zelf in iCloud zette (UID stuurhut-…) staan er al: niet dubbel ophalen
-  const nieuw = bronnen.flatMap(b => voorvallen(b, van, tot)).filter(v => !v.extern.startsWith('stuurhut-'))
+  const alle = bronnen.flatMap(b => voorvallen(b, van, tot))
+  // Afspraken die Stuurhut zelf in iCloud zette (UID stuurhut-<id>) staan er al: niet dubbel ophalen,
+  // maar wel overnemen wat je in de Apple-app veranderde of verwijderde.
+  const nieuw = alle.filter(v => !v.extern.startsWith('stuurhut-'))
+  const vanStuurhut = new Map(alle.filter(v => v.bron === 'icloud' && v.extern.startsWith('stuurhut-')).map(v => [v.extern.slice(9), v]))
+  // Alleen als Werk én Agenda goed binnenkwamen, anders zouden we per ongeluk verwijderen
+  const icloudGelukt = ['werk', 'agenda'].every(n => bronnen.some(b => b.bron === 'icloud' && b.agenda.toLowerCase() === n))
 
   // Wat er al staat, om jouw eigen keuzes (privé/zakelijk, klant) te bewaren
   const [{ data: bestaand }, { data: klanten }] = await Promise.all([
@@ -108,6 +113,27 @@ export default defineEventHandler(async (event) => {
     if (error) throw createError({ statusCode: 500, statusMessage: `Opruimen: ${error.message}` })
   }
 
+  // Eigen afspraken: wijzigingen en verwijderingen uit de Apple-app terug naar Stuurhut
+  let teruggezet = 0
+  if (icloudGelukt) {
+    const { data: eigen } = await admin.from('afspraken').select('id, titel, datum, start_tijd, eind_tijd, extra').eq('user_id', userId).is('extra->>bron', null).not('extra->>icloud', 'is', null).gte('datum', vanDatum).lte('datum', totDatum)
+    for (const r of eigen ?? []) {
+      const x = (r.extra ?? {}) as Record<string, unknown>
+      if (x.cancelled) continue
+      const v = vanStuurhut.get(r.id)
+      if (!v) {
+        const { error } = await admin.from('afspraken').delete().eq('id', r.id).eq('user_id', userId)
+        if (!error) teruggezet++
+        continue
+      }
+      const locatie = v.locatie ?? undefined
+      if (v.titel !== r.titel || v.datum !== r.datum || v.start !== r.start_tijd.slice(0, 5) || v.eind !== r.eind_tijd.slice(0, 5) || locatie !== (x.location ?? undefined)) {
+        const { error } = await admin.from('afspraken').update({ titel: v.titel, datum: v.datum, start_tijd: v.start, eind_tijd: v.eind, extra: JSON.parse(JSON.stringify({ ...x, location: locatie })) as Json }).eq('id', r.id).eq('user_id', userId)
+        if (!error) teruggezet++
+      }
+    }
+  }
+
   const status = {
     at: new Date().toISOString(),
     agendas: bronnen.map(b => b.agenda),
@@ -119,5 +145,5 @@ export default defineEventHandler(async (event) => {
   }
   await admin.from('v2_items').upsert({ user_id: userId, collection: '_sync', item_id: 'agenda', data: status, updated_at: status.at })
 
-  return { ...status, gewijzigd: gewijzigd.length + weg.length }
+  return { ...status, teruggezet, gewijzigd: gewijzigd.length + weg.length + teruggezet }
 })
