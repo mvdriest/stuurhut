@@ -105,7 +105,24 @@ export interface CalendarEvent {
   icloud?: string
 }
 
-export type Destination = 'inplannen' | 'klant' | 'kans' | 'weg'
+/** Waar iets uit Hoofd leeg heen kan */
+export type Destination =
+  | 'inplannen' | 'opdracht' | 'admin' // doen
+  | 'klant' | 'lead' // mensen
+  | 'notitie' | 'idee' | 'kans' | 'ooit' // bewaren
+  | 'weg'
+
+export type NoteKind = 'notitie' | 'idee' | 'ooit'
+
+/** Wat je wilt bewaren zonder er meteen iets mee te doen */
+export interface Note {
+  id: string
+  text: string
+  kind: NoteKind
+  createdAt: string
+  clientId?: string
+  domain?: Domain
+}
 
 export interface InboxItem {
   id: string
@@ -114,7 +131,33 @@ export interface InboxItem {
   domain?: Domain
 }
 
-export type ClientStatus = 'lead' | 'lopend' | 'afgerond'
+export type ClientStatus = 'lead' | 'lopend' | 'afgerond' | 'verloren'
+
+export type LostReason = 'te duur' | 'andere partij' | 'geen budget' | 'geen reactie' | 'niet het moment' | 'niet tevreden' | 'anders'
+
+/** Een lead of klant die je kwijt bent. Geen schande: het vertelt je iets. */
+export interface LostInfo {
+  date: ISODate
+  reason: LostReason
+  note?: string
+  /** Waar hij stond, zodat je hem kunt terughalen */
+  from: ClientStatus
+}
+
+/** Waar een lead staat. "niet nu" is geen nee: hij blijft bewaard. */
+export type LeadStage = 'gespot' | 'benaderd' | 'gesprek' | 'offerte' | 'niet nu'
+
+export interface LeadInfo {
+  stage: LeadStage
+  /** Via wie of hoe je bij deze lead kwam */
+  source?: string
+  /** Wanneer je weer iets van je laat horen */
+  followUp?: ISODate
+  /** De kans waarmee je deze lead benadert */
+  opportunityId?: string
+  /** Wanneer de lead in welke stap kwam, voor de weekreview */
+  log: { date: ISODate, stage: LeadStage }[]
+}
 
 export interface TimelineItem {
   id: string
@@ -142,6 +185,10 @@ export interface Client {
   phone?: string
   commitments: { id: string, text: string, done: boolean }[]
   timeline: TimelineItem[]
+  /** Alleen bij status lead: waar hij in de pipeline staat */
+  lead?: LeadInfo
+  /** Alleen bij status verloren */
+  lost?: LostInfo
 }
 
 export interface Project {
@@ -512,6 +559,7 @@ export interface AppState {
   tasks: Task[]
   events: CalendarEvent[]
   inbox: InboxItem[]
+  notes: Note[]
   clients: Client[]
   projects: Project[]
   opportunities: Opportunity[]

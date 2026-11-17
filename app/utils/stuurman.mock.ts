@@ -12,6 +12,7 @@ import { MEERWERK_TARIEF } from './constants'
 import { termDue } from './terms'
 import { domainOfTask, guessDomain } from './domain'
 import { firstStepFor, stuckAssignments, stuckTasks } from './firststep'
+import { ACQUISITION_MIN, ACQUISITION_TITLE } from './leads'
 import { anchorTime, clock, clockMin, isWeekend, minText, weekendLatest } from './sleep'
 
 const LIFE_ICON: Record<string, string> = { auto: 'tabler:car', gezondheid: 'tabler:heart', verzekering: 'tabler:shield', abonnement: 'tabler:repeat', documenten: 'tabler:id', huis: 'tabler:home-2' }
@@ -68,34 +69,62 @@ export interface InboxAdvice {
 }
 
 export function adviseInbox(text: string, ctx: StuurmanContext, matchClient: (t: string) => { id: string } | undefined): InboxAdvice {
-  const t = text.toLowerCase()
+  const t = text.toLowerCase().trim()
   const client = matchClient(text)
-  const personal = /tandarts|cadeau|verjaardag|bieb|apk|huisarts|boodschappen/.test(t)
+  const personal = /tandarts|cadeau|verjaardag|bieb|huisarts|boodschappen/.test(t)
+  const money = /aanbieden|pakket|abonnement|prijs|verkopen|product|tarief|omzet/.test(t)
+  const action = /bellen|mailen|versturen|plannen|regelen|opzeggen|terugbrengen|maken|sturen|aanmelden|afspreken|betalen|kopen|vragen|nakijken|checken/.test(t)
 
-  if (/opruimen|screenshots|ooit eens/.test(t)) {
+  // Weg: echt niets mee
+  if (/screenshots|opruimen van het bureaublad/.test(t)) {
     return { destination: 'weg', durationMin: 0, kind: 'taak', why: 'Dit hoeft niet op je lijst. Weggooien lucht meer op dan bewaren.' }
   }
   if (client && /^offerte/.test(t) && ctx.state.tasks.some(x => x.clientId === client.id && /offerte/i.test(x.title) && !x.done)) {
     return { destination: 'weg', clientId: client.id, durationMin: 0, kind: 'taak', why: 'Staat al als taak in je planning. Dubbel bewaren hoeft niet.' }
   }
-  if (/^idee|misschien|aanbieden|pakket|abonnement voor/.test(t)) {
+  // Ooit: wil je niet kwijt, maar ook niet nu
+  if (/^ooit|ooit (nog )?eens|zou leuk zijn|als ik tijd heb|op een dag/.test(t)) {
+    return { destination: 'ooit', durationMin: 0, kind: 'taak', why: 'Niet voor nu, wel de moeite waard. Bij Ooit staat het niet in de weg en ben je het niet kwijt.' }
+  }
+  // Lead: iemand die klant kan worden
+  if (/^lead\b|^tip( van [a-zà-ÿ ]+)?:|zoekt iemand|zou klant kunnen|heeft interesse|wil misschien een (site|website|webshop)/.test(t)) {
+    return { destination: 'lead', durationMin: 0, kind: 'taak', why: 'Dit klinkt als iemand die klant kan worden. Als lead staat hij in je pipeline en vergeet je niet op te volgen.' }
+  }
+  // Ideeën: met geld erin een kans, anders een idee
+  if (/^idee\b|^misschien\b|zou ik kunnen|wat als/.test(t)) {
+    return money
+      ? { destination: 'kans', clientId: client?.id, durationMin: 0, kind: 'focus', why: 'Klinkt als iets dat geld kan opleveren. Bij Kansen kan het rustig rijpen.' }
+      : { destination: 'idee', clientId: client?.id, durationMin: 0, kind: 'taak', why: 'Een idee hoeft nog nergens heen. Bij Ideeën bewaar ik het, en je kunt het later altijd een kans maken.' }
+  }
+  if (money && !action) {
     return { destination: 'kans', clientId: client?.id, durationMin: 0, kind: 'focus', why: 'Klinkt als iets dat geld kan opleveren. Bij Kansen kan het rustig rijpen.' }
   }
-  if (/bellen|versturen|plannen|regelen|opzeggen|terugbrengen|maken|sturen|aanmelden/.test(t) || personal) {
-    const durationMin = /bellen|opzeggen|aanmelden/.test(t) ? 15 : /plannen/.test(t) ? 30 : /versturen/.test(t) ? 45 : 20
+  // Levensadmin: dingen met een vervaldatum
+  if (/\bapk\b|verzekering|paspoort|id-kaart|rijbewijs|verloopt|vervalt/.test(t) && !client) {
+    return { destination: 'admin', durationMin: 0, kind: 'admin', why: 'Iets met een datum. Bij Levensadmin herinner ik je op tijd, zonder dat het nu je week vult.' }
+  }
+  // Opdracht: werk voor een klant dat op het bord hoort
+  if (client && /\bbug\b|feature|bouwen|ontwerp|koppelen|fase \d|pagina toevoegen/.test(t)) {
+    return { destination: 'opdracht', clientId: client.id, durationMin: 0, kind: 'taak', why: `Werk voor ${ctx.clientName(client.id)}. Op het bord zie je het naast de rest van wat je voor ze doet.` }
+  }
+  // Inplannen: een duidelijke actie
+  if (action || personal) {
+    const durationMin = /bellen|opzeggen|aanmelden|vragen|checken/.test(t) ? 15 : /plannen/.test(t) ? 30 : /versturen/.test(t) ? 45 : 20
     return {
       destination: 'inplannen',
       clientId: client?.id,
       durationMin,
       later: /volgende week|later/.test(t),
-      kind: personal ? 'persoonlijk' : /opzeggen|plannen/.test(t) ? 'admin' : 'taak',
+      kind: personal ? 'persoonlijk' : /opzeggen|plannen|betalen/.test(t) ? 'admin' : 'taak',
       why: personal ? 'Klein en persoonlijk. Ik zet het op een rustig moment, dan is het gewoon gedaan.' : 'Dit is een taak met een duidelijke volgende stap. Ik zoek een plek die past.',
     }
   }
+  // Over een klant, zonder actie: bij die klant in de tijdlijn
   if (client) {
     return { destination: 'klant', clientId: client.id, durationMin: 0, kind: 'taak', why: `Hoort bij ${ctx.clientName(client.id)}. In de tijdlijn vind je het terug bij het volgende gesprek.` }
   }
-  return { destination: 'inplannen', durationMin: 30, kind: 'taak', why: 'Ik zie geen klant of kans hierin, dus ik geef het een plek in je week.' }
+  // Geen actie, geen klant: gewoon bewaren
+  return { destination: 'notitie', durationMin: 0, kind: 'taak', why: 'Ik zie geen actie of klant. Ik bewaar het als notitie, dan ben je het kwijt uit je hoofd maar niet kwijt.' }
 }
 
 // ---------- Voorstellen per pagina ----------
@@ -235,6 +264,78 @@ export function buildSuggestions(ctx: StuurmanContext): StuurmanSuggestion[] {
       action: { type: 'navigate', to: '/kansen?focus=o1' },
     })
   }
+  // Klanten: acquisitie
+  const today = todayISO()
+  const dueLeads = s.clients.filter(c => c.status === 'lead' && c.lead && c.lead.stage !== 'niet nu' && c.lead.followUp && c.lead.followUp <= today)
+    .sort((a, b) => a.lead!.followUp!.localeCompare(b.lead!.followUp!))
+  const firstDue = dueLeads[0]
+  if (firstDue && !s.tasks.some(t => t.title === `Opvolgen: ${firstDue.name}` && !t.done)) {
+    const slot = ctx.slot(20, { domain: 'zakelijk' })
+    if (slot) {
+      const quiet = diffDays(today, firstDue.lead!.log.at(-1)?.date ?? firstDue.lead!.followUp!)
+      out.push({
+        id: `lead-opvolgen-${firstDue.id}`,
+        title: `${firstDue.name} opvolgen`,
+        icon: 'tabler:bell',
+        tone: 'klant',
+        meta: dueLeads.length > 1 ? `${dueLeads.length} leads` : undefined,
+        pages: ['klanten', 'thuis', 'kansen'],
+        text: `${firstDue.contact.split(' ')[0]} van ${firstDue.name} hoort al ${quiet > 1 ? `${quiet} dagen` : 'even'} niets van je. Zal ik ${when(slot)} twintig minuten zetten om op te volgen?`,
+        why: dueLeads.length > 1 ? `Er wachten er ${dueLeads.length}. Ik begin met de lead die het langst wacht.` : 'De meeste opdrachten komen pas na de tweede of derde keer contact.',
+        acceptLabel: 'Plan in',
+        action: { type: 'addTask', title: `Opvolgen: ${firstDue.name}`, date: slot.date, start: slot.start, durationMin: 20, kind: 'taak', domain: 'zakelijk', clientId: firstDue.id },
+      })
+    }
+  }
+  const wd = fromISO(today).getDay()
+  const monday = addDays(today, wd === 0 ? -6 : 1 - wd)
+  const hasBlock = s.tasks.some(t => t.title === ACQUISITION_TITLE && t.date && t.date >= monday && t.date <= addDays(monday, 6))
+  if (!hasBlock && wd >= 1 && wd <= 4) {
+    const slot = ctx.slot(ACQUISITION_MIN, { domain: 'zakelijk' })
+    if (slot) {
+      out.push({
+        id: 'acquisitie-blok',
+        title: 'Acquisitieblok deze week',
+        icon: 'tabler:target-arrow',
+        tone: 'klant',
+        pages: ['klanten', 'kansen', 'week'],
+        text: `Er staat deze week nog geen tijd voor nieuwe klanten. Zal ik ${when(slot)} 45 minuten acquisitie neerzetten?`,
+        why: 'Een vast blok houdt je pipeline gevuld, ook als het druk is met lopend werk. Dan sta je over drie maanden niet stil.',
+        acceptLabel: 'Zet erin',
+        action: { type: 'addTask', title: ACQUISITION_TITLE, date: slot.date, start: slot.start, durationMin: ACQUISITION_MIN, kind: 'taak', domain: 'zakelijk' },
+      })
+    }
+  }
+
+  // Klanten: verloren om dezelfde reden
+  const lost = s.clients.filter(c => c.status === 'verloren' && c.lost && c.lost.date >= addDays(today, -90))
+  const byReason = new Map<string, typeof lost>()
+  for (const c of lost) byReason.set(c.lost!.reason, [...(byReason.get(c.lost!.reason) ?? []), c])
+  const pattern = [...byReason.entries()].filter(([r, cs]) => cs.length >= 2 && r !== 'anders').sort((a, b) => b[1].length - a[1].length)[0]
+  if (pattern) {
+    const [reason, cs] = pattern
+    const advice: Record<string, string> = {
+      'te duur': 'Misschien helpt een kleiner instappakket, of eerder in het gesprek een prijsindicatie geven.',
+      'andere partij': 'Vraag de volgende keer wat de doorslag gaf. Dat zegt meer dan de prijs alleen.',
+      'geen budget': 'Vraag eerder naar budget, nog voor je een offerte schrijft.',
+      'geen reactie': 'Volg sneller op: binnen drie dagen na het eerste contact.',
+      'niet het moment': 'Zet ze op "niet nu" met een datum, dan komen ze vanzelf terug.',
+      'niet tevreden': 'Plan een kort evaluatiegesprek. Dat is ongemakkelijk, maar je leert er het meest van.',
+    }
+    out.push({
+      id: `verloren-patroon-${reason}`,
+      title: `${cs.length} keer verloren: ${reason}`,
+      icon: 'tabler:heart-broken',
+      tone: 'klant',
+      meta: `${cs.length} keer`,
+      pages: ['klanten', 'kansen'],
+      text: `${cs.slice(0, -1).map(c => c.name).join(', ')} en ${cs.at(-1)!.name} haakten ${cs.length === 2 ? 'allebei' : 'alle ' + cs.length} af om dezelfde reden: ${reason}. ${advice[reason] ?? ''}`,
+      why: 'Eén keer verliezen is pech. Vaker om dezelfde reden is een patroon waar je iets mee kunt.',
+      acceptLabel: 'Bekijk verloren',
+      action: { type: 'navigate', to: '/klanten?id=' + cs[0]!.id },
+    })
+  }
+
   const fysio = task('t9')
   if (fysio && !fysio.date) {
     const slot = ctx.slot(fysio.durationMin)

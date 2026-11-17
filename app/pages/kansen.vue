@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Confidence, Opportunity, OpportunityStatus } from '~/types'
+import { STAGE_LABEL } from '~/utils/leads'
 
 useHead({ title: 'Kansen · Stuurhut' })
 const root = ref<HTMLElement | null>(null)
@@ -10,6 +11,20 @@ const route = useRoute()
 const opps = useOpportunities()
 const clients = useClients()
 const toast = useToast()
+const leads = useLeads()
+const editor = useEditor()
+
+/** Een nieuwe lead die op de klanten achter deze kans lijkt. */
+function findLookalike(o: Opportunity) {
+  const names = (o.sourceClientIds ?? []).map(id => clients.byId(id)?.name).filter(Boolean)
+  editor.open({ kind: 'klant', prefill: {
+    status: 'lead',
+    sector: leads.lookalike(o)[0] ?? '',
+    leadStage: 'gespot',
+    leadOpportunityId: o.id,
+    leadSource: names.length ? `Lijkt op ${names.join(', ')}` : `Kans: ${o.title}`,
+  } })
+}
 
 const STATUSES: OpportunityStatus[] = ['nieuw', 'onderzoeken', 'ingepland', 'laten gaan']
 const active = computed(() => opps.opportunities.value.filter(o => o.status !== 'laten gaan').sort((a, b) => Number(!!b.featured) - Number(!!a.featured)))
@@ -90,6 +105,25 @@ onMounted(() => {
               Uitwerkblok staat {{ relDay(block(o)!.date!) }} om {{ block(o)!.start }}.
               <NuxtLink to="/week" class="font-semibold underline underline-offset-2">Naar Week</NuxtLink>
             </p>
+
+            <div class="mt-4 rounded-[14px] p-3" :class="o.featured ? 'bg-white/8' : 'bg-surface-2'">
+              <div class="flex items-center justify-between gap-3">
+                <span class="min-w-0">
+                  <span class="block text-[13.5px] font-semibold">
+                    {{ leads.forOpportunity(o.id).length ? `${leads.forOpportunity(o.id).length} ${leads.forOpportunity(o.id).length === 1 ? 'lead' : 'leads'} bij deze kans` : 'Nog geen leads bij deze kans' }}
+                  </span>
+                  <span v-if="leads.lookalike(o).length" class="block text-[12.5px] leading-snug" :class="o.featured ? 'text-on-focus-muted' : 'text-muted'">Zoek naar: {{ leads.lookalike(o).join(', ').toLowerCase() }}</span>
+                </span>
+                <button type="button" class="shrink-0 inline-flex min-h-10 items-center gap-1.5 rounded-full px-3.5 text-[13.5px] font-semibold" :class="o.featured ? 'bg-on-focus text-focus' : 'bg-surface text-ink border border-line'" @click="findLookalike(o)"><Icon name="tabler:user-search" class="size-4" />Wie lijkt hierop?</button>
+              </div>
+              <ul v-if="leads.forOpportunity(o.id).length" class="mt-2.5 flex flex-wrap gap-1.5">
+                <li v-for="c in leads.forOpportunity(o.id)" :key="c.id">
+                  <NuxtLink :to="`/klanten?id=${c.id}`" class="inline-flex min-h-8 items-center gap-1.5 rounded-full py-1 pl-1 pr-3 text-[13px]" :class="o.featured ? 'bg-white/10' : 'bg-surface'">
+                    <UiAvatar :name="c.name" :tint="c.tint" :size="22" />{{ c.name }}<span :class="o.featured ? 'text-on-focus-muted' : 'text-muted'">· {{ STAGE_LABEL[c.lead?.stage ?? 'gespot'].toLowerCase() }}</span>
+                  </NuxtLink>
+                </li>
+              </ul>
+            </div>
 
             <div class="mt-4 grid gap-1 p-1" :class="[o.featured ? 'bg-white/8 grid-cols-2 rounded-[14px]' : 'bg-surface-2 grid-cols-2 sm:grid-cols-4 rounded-[14px] sm:rounded-full']" role="radiogroup" :aria-label="`Status van ${o.title}`">
               <button

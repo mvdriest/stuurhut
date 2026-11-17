@@ -5,6 +5,7 @@ import { addDays, todayISO } from '~/utils/date'
 export function seedClients(): Client[] {
   const t = todayISO()
   const ago = (n: number) => addDays(t, -n)
+  const inDays = (n: number) => addDays(t, n)
 
   return [
     {
@@ -46,6 +47,7 @@ export function seedClients(): Client[] {
         { id: 'n2', kind: 'mail', date: ago(1), title: 'Vraag over fotografie', body: 'Kan de fotograaf van de studio ook in de offerte, als partner?' },
         { id: 'n3', kind: 'notitie', date: ago(3), title: 'Klik was goed', body: 'Ze wil in januari live. Dat is haalbaar als de offerte nu de deur uitgaat.' },
       ],
+      lead: { stage: 'gesprek', source: 'Via Henk van De Korenaar', followUp: t, log: [{ date: ago(12), stage: 'benaderd' }, { date: ago(3), stage: 'gesprek' }] },
     },
     {
       id: 'plein',
@@ -64,6 +66,7 @@ export function seedClients(): Client[] {
         { id: 'p2', kind: 'mail', date: ago(5), title: 'Wensenlijst ontvangen', body: 'Drie behandelaars, vaste tijdsloten, herinnering per sms.' },
         { id: 'p3', kind: 'notitie', date: ago(4), title: 'Lijkt op de camping-vraag', body: 'Weer een vraag naar simpel reserveren zonder duur pakket.' },
       ],
+      lead: { stage: 'gesprek', source: 'Via Ellen van Camping Aan de Rijn', followUp: ago(1), opportunityId: 'o1', log: [{ date: ago(14), stage: 'benaderd' }, { date: ago(9), stage: 'gesprek' }] },
     },
     {
       id: 'vandijk',
@@ -124,6 +127,83 @@ export function seedClients(): Client[] {
         { id: 'r3', kind: 'notitie', date: ago(4), title: 'Reserveren is de kern', body: 'Veertig plekken, seizoen april tot oktober. Grote pakketten zijn te duur voor hen.' },
         { id: 'r4', kind: 'mail', date: ago(18), title: 'Foto’s van de velden', body: 'Een map met 120 foto’s, de mooiste moeten op de homepage.' },
       ],
+    },
+    {
+      id: 'waard',
+      name: 'Camping De Waard',
+      contact: 'Joost Hendriks',
+      sector: 'Kleine camping',
+      status: 'lead',
+      tint: 'sea',
+      nextStep: 'Bellen of de mail over online reserveren is aangekomen',
+      nextStepDurationMin: 15,
+      commitments: [],
+      timeline: [
+        { id: 'w1', kind: 'mail', date: ago(6), title: 'Eerste mail verstuurd', body: 'Kort voorgesteld met het voorbeeld van Camping Aan de Rijn.' },
+      ],
+      lead: { stage: 'benaderd', source: 'Lijkt op Camping Aan de Rijn', followUp: ago(1), opportunityId: 'o1', log: [{ date: ago(8), stage: 'gespot' }, { date: ago(6), stage: 'benaderd' }] },
+    },
+    {
+      id: 'ruimte',
+      name: 'Yogastudio Ruimte',
+      contact: 'Fenna Bakker',
+      sector: 'Yogastudio',
+      status: 'lead',
+      tint: 'sand',
+      nextStep: 'Mira vragen of ze je wil voorstellen',
+      nextStepDurationMin: 10,
+      commitments: [],
+      timeline: [
+        { id: 'y1', kind: 'notitie', date: ago(1), title: 'Tip van Mira', body: 'Lotte plant lessen nu met een gedeeld spreadsheet. Mira kent haar van de markt.' },
+      ],
+      lead: { stage: 'gespot', source: 'Via Mira van Atelier Mira', followUp: inDays(1), opportunityId: 'o1', log: [{ date: ago(1), stage: 'gespot' }] },
+    },
+    {
+      id: 'leeuwen',
+      name: 'Bakkerij Van Leeuwen',
+      contact: 'Wim van Leeuwen',
+      sector: 'Ambachtelijke bakkerij',
+      status: 'lead',
+      tint: 'copper',
+      nextStep: 'Korte mail met de bestelpagina van De Korenaar als voorbeeld',
+      nextStepDurationMin: 20,
+      commitments: [],
+      timeline: [
+        { id: 'l1', kind: 'notitie', date: ago(2), title: 'Lange rij op zaterdag', body: 'Geen bestelmogelijkheid op de site. Twee dorpen verderop dan De Korenaar.' },
+      ],
+      lead: { stage: 'gespot', source: 'Lijkt op Bakkerij De Korenaar', followUp: t, opportunityId: 'o2', log: [{ date: ago(2), stage: 'gespot' }] },
+    },
+    {
+      id: 'kade',
+      name: 'Kapsalon De Kade',
+      contact: 'Nadia Yilmaz',
+      sector: 'Kapsalon',
+      status: 'lead',
+      tint: 'green',
+      nextStep: 'In het voorjaar opnieuw contact',
+      nextStepDurationMin: 15,
+      commitments: [],
+      timeline: [
+        { id: 'd1', kind: 'meeting', date: ago(20), title: 'Kort gesprek op de netwerkborrel', body: 'Interesse in online afspraken, maar eerst na de verbouwing.' },
+      ],
+      lead: { stage: 'niet nu', source: 'Netwerkborrel ondernemers', followUp: inDays(70), opportunityId: 'o1', log: [{ date: ago(20), stage: 'gesprek' }, { date: ago(18), stage: 'niet nu' }] },
+    },
+    {
+      id: 'zuid',
+      name: 'Tandartspraktijk Zuid',
+      contact: 'Karin Mulder',
+      sector: 'Tandarts',
+      status: 'verloren',
+      tint: 'sea',
+      nextStep: 'Over een halfjaar vragen hoe het bevalt',
+      nextStepDurationMin: 10,
+      commitments: [],
+      timeline: [
+        { id: 'z1', kind: 'mail', date: ago(24), title: 'Gekozen voor een ander bureau', body: 'Karin vond de offerte goed, maar een groot bureau bood online afspraken voor minder.' },
+        { id: 'z2', kind: 'meeting', date: ago(38), title: 'Offerte besproken' },
+      ],
+      lead: { stage: 'offerte', source: 'Via Ruben van Fysio Het Plein', opportunityId: 'o1', log: [{ date: ago(45), stage: 'gesprek' }, { date: ago(38), stage: 'offerte' }] },
+      lost: { date: ago(24), reason: 'te duur', note: 'Groot bureau met een standaardpakket', from: 'lead' },
     },
   ]
 }

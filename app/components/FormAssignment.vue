@@ -28,7 +28,7 @@ const toggleTag = (t: string) => { f.tags = f.tags.includes(t) ? f.tags.filter(x
 async function save() {
   tried.value = true
   if (!valid.value) return
-  const projectId = f.clientId ? clients.projectsFor(f.clientId).find(p => p.status !== 'afgerond')?.id : undefined
+  const projectId = f.clientId ? clients.projectsFor(f.clientId).find(p => p.status !== 'afgerond' && p.status !== 'verloren')?.id : undefined
   const data = { title: f.title.trim(), clientId: f.clientId || undefined, projectId, status: f.status, due: f.due || undefined, priority: f.priority, estimateH: f.estimateH, tags: f.tags, note: f.note.trim() || undefined }
   if (existing.value) {
     A.update(existing.value.id, data)

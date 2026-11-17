@@ -117,7 +117,7 @@ export const MAPPED_KEYS = MAPPED.map(m => m.key)
 
 // ---------- Overige V2-onderdelen in v2_items ----------
 /** Lijsten: één rij per ding. Ritme heeft geen id, daar is de datum de sleutel. */
-export const ITEM_LISTS = ['tasks', 'opportunities', 'transactions', 'invoices', 'subscriptions', 'rhythm', 'routines', 'chat', 'timeEntries', 'quotes', 'life'] as const
+export const ITEM_LISTS = ['tasks', 'notes', 'opportunities', 'transactions', 'invoices', 'subscriptions', 'rhythm', 'routines', 'chat', 'timeEntries', 'quotes', 'life'] as const
 /** Losse onderdelen: één rij per onderdeel, collection '_state'. */
 export const SINGLES = ['rituals', 'checkins', 'evenings', 'suggestionStatus', 'gapResolved', 'prefs'] as const
 

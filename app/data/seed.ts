@@ -2,14 +2,14 @@ import type { AppState } from '~/types'
 import { addDays, fromISO, todayISO } from '~/utils/date'
 import type { Rituals } from '~/types'
 import { seedClients, seedProjects } from './clients'
-import { seedEvents, seedInbox, seedTasks } from './planning'
+import { seedEvents, seedInbox, seedNotes, seedTasks } from './planning'
 import { NOTION_CLIENT_IDS, NOTION_PROJECT_IDS, notionDatabase, notionQuery } from './notion-opdrachten'
 import { columnsFromDatabase, mapNotionPage } from '~/utils/notion'
 import { weekScore } from '~/utils/sleep'
 import type { Assignment, Client, Project } from '~/types'
 import { seedInvoices, seedOpportunities, seedRhythm, seedSleepPlan, seedGoals, seedLife, seedQuotes, seedRoutines, seedSubscriptions, seedTimeEntries, seedTransactions } from './business'
 
-export const STATE_VERSION = 14
+export const STATE_VERSION = 17
 
 /** De volledige testdataset. "Zet testdata terug" roept dit opnieuw aan. */
 export function createSeed(): AppState {
@@ -30,6 +30,7 @@ export function createSeed(): AppState {
     tasks: seedTasks(),
     events: seedEvents(),
     inbox: seedInbox(),
+    notes: seedNotes(),
     clients,
     projects,
     opportunities: seedOpportunities(),
@@ -99,6 +100,7 @@ export function createEmpty(): AppState {
     tasks: [],
     events: [],
     inbox: [],
+    notes: [],
     clients: [],
     projects: [],
     opportunities: [],

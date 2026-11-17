@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { ClientStatus } from '~/types'
+import type { ClientStatus, LeadStage, LostReason } from '~/types'
+import { LEAD_STAGES, LOST_REASONS, STAGE_LABEL } from '~/utils/leads'
 
 useHead({ title: 'Klanten · Stuurhut' })
 const root = ref<HTMLElement | null>(null)
@@ -21,8 +22,60 @@ function newClient() {
 
 const q = ref('')
 const status = ref<ClientStatus | 'alle'>('alle')
-const list = computed(() => clients.search(q.value, status.value))
-const STATUS: (ClientStatus | 'alle')[] = ['alle', 'lead', 'lopend', 'afgerond']
+const stage = ref<LeadStage | null>(null)
+const list = computed(() => clients.search(q.value, status.value).filter(c => !stage.value || (c.status === 'lead' && (c.lead?.stage ?? 'gespot') === stage.value)))
+watch(status, (s) => { if (s !== 'lead') stage.value = null })
+
+// ---------- Pipeline ----------
+const leads = useLeads()
+function filterStage(s: LeadStage) {
+  const off = stage.value === s
+  status.value = off ? 'alle' : 'lead'
+  stage.value = off ? null : s
+}
+const isDue = (c: { status: ClientStatus, lead?: { stage: LeadStage, followUp?: string } }) => c.status === 'lead' && c.lead?.stage !== 'niet nu' && !!c.lead?.followUp && c.lead.followUp <= todayISO()
+function planBlock() {
+  const slot = leads.planAcquisition()
+  if (!slot) return toast.push({ text: 'Ik vond deze week geen 45 minuten meer.' })
+  toast.push({ text: `Acquisitieblok staat ${relDay(slot.date)} om ${slot.start}.`, to: '/week', toLabel: 'Bekijk' })
+}
+function planFollowUp() {
+  const c = client.value
+  if (!c) return
+  const slot = leads.planFollowUp(c)
+  if (!slot) return toast.push({ text: 'Ik vond geen plek deze week.' })
+  toast.push({ text: `Opvolgen staat ${relDay(slot.date)} om ${slot.start}.`, to: '/week', toLabel: 'Bekijk' })
+}
+const followUpTask = computed(() => client.value ? tasks.tasks.value.find(t => t.clientId === client.value!.id && t.title === `Opvolgen: ${client.value!.name}` && !t.done && t.date) : undefined)
+function winClient() {
+  const c = client.value
+  if (!c) return
+  leads.win(c)
+  toast.push({ text: `${c.name} is klant geworden. Dat telt mee voor je doel.` })
+}
+// ---------- Verloren melden ----------
+const losing = ref(false)
+const lostReason = ref<LostReason | null>(null)
+const lostNote = ref('')
+function confirmLost() {
+  const c = client.value
+  if (!c || !lostReason.value) return
+  const wasLead = c.status === 'lead'
+  clients.markLost(c.id, lostReason.value, lostNote.value)
+  losing.value = false
+  lostReason.value = null
+  lostNote.value = ''
+  toast.push({ text: `${c.name} staat bij verloren. ${wasLead ? 'Goed dat je het meldt: zo zie je waar leads afhaken.' : 'Vervelend. Goed dat je het vastlegt.'}`, undo: () => clients.restore(c.id) })
+}
+const lostQuarter = computed(() => clients.lostIn(addDays(todayISO(), -90), todayISO()))
+const topLostReason = computed(() => {
+  const n: Record<string, number> = {}
+  for (const c of lostQuarter.value) n[c.lost!.reason] = (n[c.lost!.reason] ?? 0) + 1
+  const top = Object.entries(n).sort((a, b) => b[1] - a[1])[0]
+  return top && top[1] > 1 ? top[0] : null
+})
+const leadOpp = computed(() => client.value?.lead?.opportunityId ? opps.byId(client.value.lead.opportunityId) : undefined)
+const STATUS: (ClientStatus | 'alle')[] = ['alle', 'lead', 'lopend', 'afgerond', 'verloren']
 
 const selectedId = computed(() => (route.query.id as string) || (isLg.value ? list.value[0]?.id : undefined))
 const client = computed(() => clients.byId(selectedId.value))
@@ -37,7 +90,7 @@ function back() {
   router.replace({ query: {} })
 }
 
-const statusClass = (s: ClientStatus) => ({ lead: 'bg-copper-soft text-copper-ink', lopend: 'bg-sea-soft text-sea-ink', afgerond: 'bg-green-soft text-green' })[s]
+const statusClass = (s: ClientStatus) => ({ lead: 'bg-copper-soft text-copper-ink', lopend: 'bg-sea-soft text-sea-ink', afgerond: 'bg-green-soft text-green', verloren: 'bg-surface-3 text-muted' })[s]
 const kindIcon = { mail: 'tabler:mail', meeting: 'tabler:messages', notitie: 'tabler:note' }
 const kindLabel = { mail: 'Mail', meeting: 'Meeting', notitie: 'Notitie' }
 
@@ -53,6 +106,8 @@ function planNext() {
 }
 const pattern = computed(() => opps.opportunities.value.find(o => o.featured && client.value && o.sourceClientIds?.includes(client.value.id)))
 const openCommitments = computed(() => client.value?.commitments.filter(c => !c.done).length ?? 0)
+// Ander klant gekozen: meldformulier dicht
+watch(selectedId, () => { losing.value = false; lostReason.value = null; lostNote.value = '' })
 </script>
 
 <template>
@@ -62,6 +117,47 @@ const openCommitments = computed(() => client.value?.commitments.filter(c => !c.
         <button type="button" class="btn-primary" @click="newClient"><Icon name="tabler:plus" class="size-4" />Nieuwe klant</button>
       </template>
     </PageHeader>
+
+    <section v-show="isLg || !route.query.id" class="card mb-4 p-4 md:mb-5 md:p-5" aria-label="Pipeline" data-enter>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p class="label">Pipeline</p>
+          <p class="mt-0.5 text-[14px] text-muted">
+            {{ leads.active.value.length }} {{ leads.active.value.length === 1 ? 'lead' : 'leads' }} in gesprek of in beeld<template v-if="leads.due.value.length">, <span class="font-semibold text-copper-ink">{{ leads.due.value.length }} wacht{{ leads.due.value.length === 1 ? '' : 'en' }} op opvolging</span></template>.
+          </p>
+        </div>
+        <p v-if="leads.nextBlock.value" class="inline-flex min-h-10 items-center gap-2 rounded-full bg-surface-2 px-4 text-[14px]"><Icon name="tabler:target-arrow" class="size-4 text-sea-ink" />Acquisitie {{ relDay(leads.nextBlock.value.date!) }} om {{ leads.nextBlock.value.start }}</p>
+        <button v-else type="button" class="btn-soft !min-h-10 !text-[14px]" @click="planBlock"><Icon name="tabler:target-arrow" class="size-4" />Plan acquisitieblok</button>
+      </div>
+      <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <button
+          v-for="(s, i) in LEAD_STAGES"
+          :key="s"
+          type="button"
+          class="relative rounded-[14px] p-3 text-left transition-colors"
+          :class="stage === s ? 'bg-focus text-on-focus' : 'bg-surface-2 hover:bg-surface-3'"
+          :aria-pressed="stage === s"
+          @click="filterStage(s)"
+        >
+          <span class="flex items-center justify-between text-[13px] font-semibold" :class="stage === s ? 'text-on-focus-muted' : 'text-muted'">
+            {{ STAGE_LABEL[s] }}
+            <Icon v-if="i < LEAD_STAGES.length - 1" name="tabler:chevron-right" class="hidden size-4 opacity-50 sm:block" />
+          </span>
+          <span class="num mt-1 block text-[26px] leading-none">{{ leads.byStage(s).length }}</span>
+          <span class="mt-2 flex h-6 -space-x-1.5">
+            <UiAvatar v-for="c in leads.byStage(s).slice(0, 4)" :key="c.id" :name="c.name" :tint="c.tint" :size="24" class="ring-2" :class="stage === s ? 'ring-focus' : 'ring-surface-2'" />
+          </span>
+        </button>
+      </div>
+      <p v-if="leads.byStage('niet nu').length || lostQuarter.length" class="mt-3 text-[13px] text-muted">
+        <template v-if="leads.byStage('niet nu').length">
+          <button type="button" class="font-semibold underline underline-offset-2" @click="filterStage('niet nu')">{{ leads.byStage('niet nu').length }} op "niet nu"</button>, bewaard voor later.
+        </template>
+        <template v-if="lostQuarter.length">
+          <button type="button" class="font-semibold underline underline-offset-2" @click="status = 'verloren'">{{ lostQuarter.length }} verloren</button> in de laatste drie maanden<template v-if="topLostReason">, vaakst om "{{ topLostReason }}"</template>.
+        </template>
+      </p>
+    </section>
 
     <div class="grid grid-cols-1 gap-4 md:gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
       <!-- Lijst -->
@@ -82,10 +178,11 @@ const openCommitments = computed(() => client.value?.commitments.filter(c => !c.
                 <span class="block truncate text-[15.5px] font-semibold">{{ c.name }}</span>
                 <span class="block truncate text-[13px] text-muted">{{ clients.projectsFor(c.id)[0]?.name ?? c.sector }}</span>
               </span>
-              <span class="chip" :class="statusClass(c.status)">{{ c.status }}</span>
+              <span v-if="isDue(c)" class="size-2 shrink-0 rounded-full bg-copper" title="Tijd om op te volgen" />
+              <span class="chip" :class="statusClass(c.status)">{{ c.status === 'lead' ? STAGE_LABEL[c.lead?.stage ?? 'gespot'].toLowerCase() : c.status }}</span>
             </button>
           </li>
-          <li v-if="!list.length" class="p-5 text-[14.5px] text-muted">Geen klant gevonden met "{{ q }}".</li>
+          <li v-if="!list.length" class="p-5 text-[14.5px] text-muted">{{ q ? `Geen klant gevonden met "${q}".` : 'Hier staat nog niemand.' }}</li>
         </ul>
       </section>
 
@@ -107,12 +204,68 @@ const openCommitments = computed(() => client.value?.commitments.filter(c => !c.
               </p>
             </div>
             <span class="chip" :class="statusClass(client.status)">{{ client.status }}</span>
+            <button v-if="client.status === 'lopend' || client.status === 'afgerond'" type="button" class="icon-btn shrink-0" :aria-label="`${client.name} als verloren melden`" title="Klant verloren" :aria-expanded="losing" @click="losing = !losing"><Icon name="tabler:heart-broken" class="size-[18px]" /></button>
             <button type="button" class="icon-btn -mr-2 shrink-0" :aria-label="`${client.name} bewerken`" title="Bewerken" @click="editor.open({ kind: 'klant', id: client.id })"><Icon name="tabler:pencil" class="size-[18px]" /></button>
           </div>
           <div class="mt-4 space-y-3">
             <ProjectCard v-for="p in clients.projectsFor(client.id)" :key="p.id" :project="p" />
           </div>
           <button type="button" class="btn-ghost mt-2 -ml-3 !text-[14px]" @click="editor.open({ kind: 'akkoord', prefill: { clientId: client.id } })"><Icon name="tabler:file-check" class="size-4" />Akkoord op een offerte vastleggen</button>
+        </div>
+
+        <div v-if="client.status === 'verloren' && client.lost" class="card flex flex-wrap items-center gap-3 p-4 md:p-5" data-enter data-detail>
+          <span class="grid size-11 shrink-0 place-items-center rounded-full bg-surface-3 text-muted"><Icon name="tabler:heart-broken" class="size-5" /></span>
+          <span class="min-w-0 flex-1">
+            <span class="block text-[15px] font-semibold">{{ client.lost.from === 'lead' ? 'Lead' : 'Klant' }} verloren {{ relDay(client.lost.date) }}</span>
+            <span class="block text-[13.5px] text-muted">{{ cap(client.lost.reason) }}<template v-if="client.lost.note">. {{ client.lost.note }}</template></span>
+          </span>
+          <button type="button" class="btn-soft !min-h-10 !text-[14px]" @click="clients.restore(client.id); toast.push({ text: `${client.name} is teruggehaald.` })"><Icon name="tabler:history" class="size-4" />Terughalen</button>
+        </div>
+
+        <div v-if="losing" class="card p-5 md:p-6" data-detail>
+          <p class="text-[17px] font-semibold">{{ client.status === 'lead' ? 'Lead verloren' : 'Klant verloren' }}</p>
+          <p class="mt-1 text-[14px] text-muted">Wat was de reden? Na een paar keer zie je een patroon.</p>
+          <div class="seg mt-3" role="radiogroup" aria-label="Reden">
+            <button v-for="r in LOST_REASONS" :key="r" type="button" role="radio" class="seg-btn" :aria-checked="lostReason === r" :aria-pressed="lostReason === r" @click="lostReason = r">{{ cap(r) }}</button>
+          </div>
+          <label class="field mt-3"><span class="field-label">Toelichting <span class="text-muted">(mag leeg)</span></span><input v-model="lostNote" class="field-input" placeholder="Bijv. koos voor een groot bureau" @keydown.enter.prevent="confirmLost"></label>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button type="button" class="btn-primary" :disabled="!lostReason" :class="!lostReason ? 'opacity-50' : ''" @click="confirmLost">Meld als verloren</button>
+            <button type="button" class="btn-ghost" @click="losing = false">Annuleer</button>
+          </div>
+        </div>
+
+        <div v-if="client.status === 'lead'" class="card p-5 md:p-6" data-enter data-detail>
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <p class="label">Lead</p>
+            <span v-if="client.lead?.source" class="chip bg-surface-2 text-ink"><Icon name="tabler:route" class="size-3.5" />{{ client.lead.source }}</span>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-1 rounded-[14px] bg-surface-2 p-1 sm:grid-cols-5 sm:rounded-full" role="radiogroup" aria-label="Stap in de pipeline">
+            <button
+              v-for="s in [...LEAD_STAGES, 'niet nu' as const]"
+              :key="s"
+              type="button"
+              role="radio"
+              :aria-checked="(client.lead?.stage ?? 'gespot') === s"
+              class="min-h-10 rounded-full px-2 text-[13px] font-semibold transition-colors"
+              :class="(client.lead?.stage ?? 'gespot') === s ? 'bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.08)]' : 'text-muted hover:text-ink'"
+              @click="leads.setStage(client, s)"
+            >{{ STAGE_LABEL[s] }}</button>
+          </div>
+          <div class="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[14.5px]">
+            <label class="inline-flex items-center gap-2">
+              <Icon name="tabler:bell" class="size-4" :class="isDue(client) ? 'text-copper-ink' : 'text-muted'" />
+              <span :class="isDue(client) ? 'font-semibold text-copper-ink' : ''">Opvolgen {{ client.lead?.followUp ? relDay(client.lead.followUp) : 'niet gepland' }}</span>
+              <input type="date" class="field-input !min-h-9 !w-auto !py-1 !text-[13.5px]" :value="client.lead?.followUp ?? ''" aria-label="Opvolgdatum" @change="leads.setFollowUp(client, ($event.target as HTMLInputElement).value)">
+            </label>
+            <NuxtLink v-if="leadOpp" :to="`/kansen?focus=${leadOpp.id}`" class="inline-flex items-center gap-1.5 font-semibold text-sea-ink"><Icon name="tabler:bulb" class="size-4" />{{ leadOpp.title }}</NuxtLink>
+          </div>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <p v-if="followUpTask" class="inline-flex min-h-10 items-center gap-2 rounded-full bg-surface-2 px-4 text-[14px]"><Icon name="tabler:check" class="size-4" />Opvolgen staat {{ relDay(followUpTask.date!) }} om {{ followUpTask.start }}</p>
+            <button v-else type="button" class="btn-soft !min-h-10 !text-[14px]" @click="planFollowUp"><Icon name="tabler:calendar-plus" class="size-4" />Opvolging inplannen</button>
+            <button type="button" class="btn-ghost !min-h-10 !text-[14px]" @click="winClient"><Icon name="tabler:confetti" class="size-4" />Wordt klant</button>
+            <button type="button" class="btn-ghost !min-h-10 !text-[14px] text-muted" :aria-expanded="losing" @click="losing = !losing"><Icon name="tabler:heart-broken" class="size-4" />Verloren</button>
+          </div>
         </div>
 
         <div v-if="clientAssignments.length" class="card p-5 md:p-6" data-enter data-detail>
@@ -133,7 +286,7 @@ const openCommitments = computed(() => client.value?.commitments.filter(c => !c.
         </div>
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div class="card-focus p-5 md:p-6" data-enter data-detail>
+          <div v-if="client.status !== 'verloren'" class="card-focus p-5 md:p-6" data-enter data-detail>
             <p class="text-[13px] font-semibold text-on-focus-muted">Volgende stap</p>
             <template v-if="!client.nextStep">
               <p class="lead mt-2 text-[22px] leading-snug">Nog geen volgende stap</p>

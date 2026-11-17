@@ -195,7 +195,7 @@ export function useAssignments() {
   }
 
   function projectFor(a: Assignment) {
-    return a.projectId ?? (a.clientId ? clients.projectsFor(a.clientId).find(p => p.status !== 'afgerond')?.id : undefined)
+    return a.projectId ?? (a.clientId ? clients.projectsFor(a.clientId).find(p => p.status !== 'afgerond' && p.status !== 'verloren')?.id : undefined)
   }
 
   /** Uren loggen op de opdracht (en dus op het project). */

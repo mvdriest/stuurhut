@@ -13,6 +13,6 @@ defineProps<{ title: string, eyebrow?: string, sub?: string }>()
       <h1 class="text-[30px] md:text-[36px] font-semibold leading-[1.1] tracking-[-0.02em]">{{ title }}</h1>
       <p v-if="sub" class="mt-1.5 hidden max-w-[60ch] text-[15.5px] text-muted sm:block">{{ sub }}</p>
     </div>
-    <div class="flex items-center gap-2"><slot name="actions" /></div>
+    <div class="flex max-w-full flex-wrap items-center gap-2"><slot name="actions" /></div>
   </header>
 </template>

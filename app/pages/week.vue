@@ -166,10 +166,12 @@ const gapCat = { task: 'taak', focus: 'focus', vrij: 'prive' } as const
   <div ref="root">
     <PageHeader title="Week">
       <template #actions>
-        <DomainSwitch class="w-[270px] xl:hidden" />
-        <button type="button" class="btn-primary !px-3.5" :aria-expanded="planOpen" @click="planOpen = !planOpen"><Icon name="tabler:steering-wheel" class="size-4" />Plan mijn week</button>
-        <button type="button" class="btn-outline !px-3.5" @click="editor.open({ kind: 'taak', prefill: { } })"><Icon name="tabler:plus" class="size-4" />Taak</button>
-        <button type="button" class="btn-outline !px-3.5" @click="editor.open({ kind: 'afspraak', prefill: { date: selected } })"><Icon name="tabler:plus" class="size-4" />Afspraak</button>
+        <DomainSwitch class="w-full sm:w-[270px] xl:hidden" />
+        <div class="grid w-full grid-cols-[1fr_auto_auto] gap-2 sm:flex sm:w-auto">
+          <button type="button" class="btn-primary !px-3.5" :aria-expanded="planOpen" @click="planOpen = !planOpen"><Icon name="tabler:steering-wheel" class="size-4" /><span class="sm:hidden">Plan week</span><span class="hidden sm:inline">Plan mijn week</span></button>
+          <button type="button" class="btn-outline !px-3.5" @click="editor.open({ kind: 'taak', prefill: { } })"><Icon name="tabler:plus" class="size-4" />Taak</button>
+          <button type="button" class="btn-outline !px-3.5" @click="editor.open({ kind: 'afspraak', prefill: { date: selected } })"><Icon name="tabler:plus" class="size-4" />Afspraak</button>
+        </div>
         <div class="hidden rounded-full bg-surface-3/70 p-1 lg:flex" role="tablist" aria-label="Weergave">
           <button v-for="v in (['week', 'dag'] as const)" :key="v" type="button" role="tab" :aria-selected="view === v" class="min-h-9 rounded-full px-4 text-[14px] capitalize transition-colors" :class="view === v ? 'bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.08)]' : 'text-muted hover:text-ink'" @click="view = v">{{ v }}</button>
         </div>

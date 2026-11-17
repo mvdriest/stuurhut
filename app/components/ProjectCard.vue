@@ -60,10 +60,10 @@ function planTalk() {
     </p>
 
     <div class="mt-3 flex flex-wrap items-center gap-2">
-      <button v-if="project.status !== 'afgerond'" type="button" class="btn-outline !min-h-10 !px-3.5 !text-[13.5px]" :aria-expanded="logging" @click="logging = !logging"><Icon name="tabler:clock" class="size-4" />Uren loggen</button>
+      <button v-if="!['afgerond', 'verloren'].includes(project.status)" type="button" class="btn-outline !min-h-10 !px-3.5 !text-[13.5px]" :aria-expanded="logging" @click="logging = !logging"><Icon name="tabler:clock" class="size-4" />Uren loggen</button>
       <button v-if="s.billable > 0" type="button" class="btn-primary !min-h-10 !px-3.5 !text-[13.5px]" @click="invoice"><Icon name="tabler:file-invoice" class="size-4" />Factureer {{ dec1(s.billable).replace(',0', '') }} u · {{ euroRound(s.billableAmount) }}</button>
-      <button v-if="!project.terms?.length && project.status !== 'afgerond'" type="button" class="btn-outline !min-h-10 !px-3.5 !text-[13.5px]" @click="editor.open({ kind: 'akkoord', prefill: { clientId: project.clientId, projectId: project.id } })"><Icon name="tabler:file-check" class="size-4" />Akkoord vastleggen</button>
-      <button v-if="s.over && project.status !== 'afgerond'" type="button" class="btn-accent !min-h-10 !px-3.5 !text-[13.5px]" @click="planTalk">Plan gesprek</button>
+      <button v-if="!project.terms?.length && !['afgerond', 'verloren'].includes(project.status)" type="button" class="btn-outline !min-h-10 !px-3.5 !text-[13.5px]" @click="editor.open({ kind: 'akkoord', prefill: { clientId: project.clientId, projectId: project.id } })"><Icon name="tabler:file-check" class="size-4" />Akkoord vastleggen</button>
+      <button v-if="s.over && !['afgerond', 'verloren'].includes(project.status)" type="button" class="btn-accent !min-h-10 !px-3.5 !text-[13.5px]" @click="planTalk">Plan gesprek</button>
     </div>
     <div v-if="logging" class="mt-3 rounded-[12px] bg-surface p-3">
       <input v-model="note" class="field-input !min-h-10" placeholder="Waaraan gewerkt? (mag leeg)" aria-label="Omschrijving">

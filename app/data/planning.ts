@@ -1,6 +1,6 @@
 // Afspraken, taken en Hoofd leeg-items. Dag 0 is vandaag, dan de eerstvolgende werkdagen.
 // Dag 1 is opvallend vol, dag 3 is rustig, op dag 2 vervalt een afspraak (de "verschuiving").
-import type { CalendarEvent, InboxItem, Task } from '~/types'
+import type { CalendarEvent, InboxItem, Task, Note } from '~/types'
 import { planDays } from '~/utils/date'
 
 export function seedEvents(): CalendarEvent[] {
@@ -49,6 +49,17 @@ export function seedTasks(): Task[] {
   ]
 }
 
+/** Al bewaard: zo zie je hoe Bewaard eruitziet. */
+export function seedNotes(): Note[] {
+  const h = (n: number) => new Date(Date.now() - n * 3_600_000).toISOString()
+  return [
+    { id: 'n1', kind: 'idee', text: 'Een korte video per opgeleverde site, zodat klanten zelf de basis snappen', createdAt: h(30) },
+    { id: 'n2', kind: 'notitie', text: 'Henk: liever bellen dan mailen, na 14:00 als de bakkerij rustig is', createdAt: h(52), clientId: 'korenaar' },
+    { id: 'n3', kind: 'ooit', text: 'Een eigen portfoliosite die niet uit 2021 komt', createdAt: h(140) },
+    { id: 'n4', kind: 'notitie', text: 'Boekhouder zegt: kilometers dit jaar beter bijhouden', createdAt: h(75) },
+  ]
+}
+
 export function seedInbox(): InboxItem[] {
   const texts = [
     'Nieuwe klant: Bakkerij Zoet, contact Anna de Wit',
@@ -64,6 +75,11 @@ export function seedInbox(): InboxItem[] {
     'Cadeau voor Lotte regelen, verjaardag zaterdag',
     'Boek over prijzen terugbrengen naar de bieb',
     'Oude screenshots van het bureaublad opruimen',
+    'Ooit nog eens een cursus typografie volgen',
+    'Ellen van de camping wil in maart een tweede gesprek over reserveren',
+    'Tip van Mira: de bloemist naast haar zoekt iemand voor een webshop',
+    'Klanten vinden het fijn als ik na oplevering een korte handleiding stuur',
+    'APK auto verloopt in februari',
   ]
   const now = Date.now()
   return texts.map((text, i) => ({ id: `i${i + 1}`, text, createdAt: new Date(now - i * 3_600_000 * 5).toISOString() }))

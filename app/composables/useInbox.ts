@@ -1,4 +1,4 @@
-import type { Destination, Domain, InboxItem } from '~/types'
+import type { Destination, Domain, EditorRequest, InboxItem, NoteKind } from '~/types'
 import { guessDomain } from '~/utils/domain'
 import { adviseInbox, type StuurmanContext } from '~/utils/stuurman.mock'
 
@@ -8,6 +8,7 @@ export function useInbox() {
   const cal = useCalendar()
   const clients = useClients()
   const opps = useOpportunities()
+  const notes = useNotes()
 
   const items = computed(() => state.value.inbox)
   const count = computed(() => state.value.inbox.length)
@@ -36,8 +37,19 @@ export function useInbox() {
     if (it) it.domain = domainFor(it) === 'prive' ? 'zakelijk' : 'prive'
   }
 
+  /** Klanten die genoemd kunnen worden, beste eerst. Voor de keuzelijst. */
+  const candidates = (item: InboxItem) => clients.matchClients(item.text).filter(m => m.score >= 15).map(m => m.client)
+
   function advice(item: InboxItem) {
-    const a = adviseInbox(item.text, ctx(), t => clients.matchInText(t))
+    let a = adviseInbox(item.text, ctx(), t => clients.matchInText(t))
+    // Twijfel over de klant: niet gokken, maar vragen
+    if (a.destination === 'notitie') {
+      const maybe = candidates(item)
+      if (maybe.length) {
+        const names = maybe.slice(0, 2).map(c => c.name)
+        a = { ...a, destination: 'klant', clientId: undefined, why: `Gaat dit over ${names.join(' of ')}? Ik weet het niet zeker, dus kies jij.` }
+      }
+    }
     const slot = a.destination === 'inplannen' ? cal.findSlot(a.durationMin || 30, { fromIndex: a.later ? 4 : 0, domain: domainFor(item) }) : null
     return { ...a, slot, client: clients.byId(a.clientId) }
   }
@@ -49,10 +61,23 @@ export function useInbox() {
     return () => { state.value.inbox.splice(idx, 0, removed!) }
   }
 
+  /** Bestemmingen die eerst een formulier openen: jij vult aan, dan pas weg uit de bak. */
+  function editorFor(item: InboxItem, dest: Destination, clientId?: string): EditorRequest | null {
+    const cap1 = (s: string) => s.replace(/^\w/, c => c.toUpperCase())
+    const text = item.text.replace(/^(lead|tip( van [^:]+)?|opdracht|idee):\s*/i, '').trim()
+    if (dest === 'opdracht') return { kind: 'opdracht', prefill: { title: cap1(text), clientId: clientId ?? advice(item).clientId } }
+    if (dest === 'admin') return { kind: 'admin', prefill: { title: cap1(text) } }
+    if (dest === 'lead') {
+      const via = item.text.match(/^tip van ([^:]+):/i)?.[1]
+      return { kind: 'klant', prefill: { status: 'lead', name: '', leadStage: 'gespot', leadSource: via ? `Tip van ${via.trim()}` : 'Uit Hoofd leeg', nextStep: cap1(text) } }
+    }
+    return null
+  }
+
   /** Item naar zijn bestemming. Geeft een korte zin terug voor de melding. */
   function route(item: InboxItem, dest: Destination, clientId?: string): { text: string, to?: string } {
     const a = advice(item)
-    const cid = clientId ?? a.clientId
+    const cid = clientId ?? (dest === a.destination ? a.clientId : undefined)
     if (dest === 'inplannen') {
       const dur = a.destination === 'inplannen' ? a.durationMin : 30
       const domain = domainFor(item)
@@ -61,8 +86,16 @@ export function useInbox() {
       remove(item.id)
       return { text: slot ? `Ingepland ${relDay(slot.date)} om ${slot.start}.` : 'In Week bij nog in te plannen.', to: '/week' }
     }
+    if (dest === 'notitie' || dest === 'idee' || dest === 'ooit') {
+      notes.add(item.text, dest as NoteKind, { clientId: cid, domain: domainFor(item) })
+      remove(item.id)
+      const where = { notitie: 'notities', idee: 'ideeën', ooit: 'Ooit' }[dest]
+      return { text: `Bewaard bij ${where}.`, to: '/hoofd-leeg?bewaard=1' }
+    }
     if (dest === 'klant') {
-      const target = cid ?? state.value.clients[0]!.id
+      // Nooit gokken: zonder gekozen klant gebeurt er niets
+      if (!cid) return { text: 'Kies eerst een klant.' }
+      const target = cid
       clients.addNote(target, item.text)
       remove(item.id)
       return { text: `Bij ${clients.byId(target)?.name} gezet.`, to: `/klanten?id=${target}` }
@@ -98,5 +131,5 @@ export function useInbox() {
     return n
   }
 
-  return { items, count, add, advice, remove, route, sortClients, domainFor, toggleDomain }
+  return { items, count, add, advice, candidates, editorFor, remove, route, sortClients, domainFor, toggleDomain }
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { ClientStatus } from '~/types'
+import type { ClientStatus, LeadStage } from '~/types'
+import { LEAD_STAGES, STAGE_LABEL } from '~/utils/leads'
 
 const props = defineProps<{ id?: string, prefill?: Record<string, unknown> }>()
 const editor = useEditor()
@@ -7,15 +8,26 @@ const clients = useClients()
 const toast = useToast()
 const existing = computed(() => clients.byId(props.id))
 const project = computed(() => (props.id ? clients.projectsFor(props.id)[0] : undefined))
+const opps = useOpportunities()
+const leads = useLeads()
+const lead = existing.value?.lead
 
 const f = reactive({
   name: (existing.value?.name ?? props.prefill?.name ?? '') as string,
   contact: (existing.value?.contact ?? props.prefill?.contact ?? '') as string,
   sector: (existing.value?.sector ?? props.prefill?.sector ?? '') as string,
   status: (existing.value?.status ?? props.prefill?.status ?? 'lead') as ClientStatus,
-  nextStep: (existing.value?.nextStep ?? '') as string,
+  nextStep: (existing.value?.nextStep ?? props.prefill?.nextStep ?? '') as string,
   projectName: (project.value?.name ?? '') as string,
   projectBudget: (project.value?.budget ?? undefined) as number | undefined,
+  leadStage: (lead?.stage ?? props.prefill?.leadStage ?? 'gespot') as LeadStage,
+  leadSource: (lead?.source ?? props.prefill?.leadSource ?? '') as string,
+  leadFollowUp: (lead?.followUp ?? props.prefill?.leadFollowUp ?? addDays(todayISO(), 3)) as string,
+  leadOpportunityId: (lead?.opportunityId ?? props.prefill?.leadOpportunityId ?? '') as string,
+})
+const lookalike = computed(() => {
+  const o = opps.byId(f.leadOpportunityId)
+  return o ? leads.lookalike(o) : []
 })
 const tried = ref(false)
 const valid = computed(() => f.name.trim().length > 1)
@@ -61,6 +73,26 @@ defineExpose({ save })
       <div class="seg" role="group" aria-label="Status">
         <button v-for="s in (['lead', 'lopend', 'afgerond'] as const)" :key="s" type="button" class="seg-btn capitalize" :aria-pressed="f.status === s" @click="f.status = s">{{ s }}</button>
       </div>
+    </div>
+    <div v-if="f.status === 'lead'" class="space-y-4 rounded-[14px] bg-surface-2 p-4">
+      <div>
+        <span class="field-label">Waar staat de lead?</span>
+        <div class="seg flex-wrap" role="group" aria-label="Stap in de pipeline">
+          <button v-for="s in [...LEAD_STAGES, 'niet nu' as const]" :key="s" type="button" class="seg-btn" :aria-pressed="f.leadStage === s" @click="f.leadStage = s">{{ STAGE_LABEL[s] }}</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <label class="field"><span class="field-label">Bron</span><input v-model="f.leadSource" class="field-input" placeholder="Via wie of hoe?"></label>
+        <label class="field"><span class="field-label">Opvolgen op</span><input v-model="f.leadFollowUp" type="date" class="field-input"></label>
+      </div>
+      <label class="field">
+        <span class="field-label">Benaderen met kans</span>
+        <select v-model="f.leadOpportunityId" class="field-input">
+          <option value="">Geen</option>
+          <option v-for="o in opps.opportunities.value.filter(o => o.status !== 'laten gaan')" :key="o.id" :value="o.id">{{ o.title }}</option>
+        </select>
+        <span v-if="lookalike.length" class="mt-1 block text-[13px] text-muted">Lijkt op: {{ lookalike.join(', ').toLowerCase() }}</span>
+      </label>
     </div>
     <label class="field"><span class="field-label">Volgende stap</span><input v-model="f.nextStep" class="field-input" placeholder="Kennismaken en wensen ophalen"></label>
     <div class="rounded-[14px] bg-surface-2 p-4">

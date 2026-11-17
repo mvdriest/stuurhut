@@ -17,6 +17,11 @@ const toast = useToast()
 const today = todayISO()
 const monday = rituals.monday
 
+const leads = useLeads()
+const pipeline = computed(() => leads.moved(monday, today))
+const clientsApi = useClients()
+const lostThisWeek = computed(() => clientsApi.lostIn(monday, today))
+
 const step = ref(0)
 const STEPS = 5
 
@@ -33,6 +38,8 @@ const stats = computed(() => {
     { label: 'Binnengekomen', value: euroRound(revenue), icon: 'tabler:coin-euro' },
     { label: 'Ritmescore', value: `${Math.round(R.score.value.now * 100)}%`, icon: 'tabler:wave-sine' },
     { label: 'Werkuren (7 dagen)', value: `${Math.round(work)} u`, icon: 'tabler:briefcase', warn: work > 42 },
+    { label: 'Gesprekken met leads', value: `${pipeline.value.talks}`, icon: 'tabler:target-arrow', warn: pipeline.value.talks === 0 && leads.active.value.length > 0 },
+    ...(lostThisWeek.value.length ? [{ label: 'Verloren', value: `${lostThisWeek.value.length}`, icon: 'tabler:heart-broken', warn: true }] : []),
     { label: 'Avonden zonder werk', value: evenings ? `${evenings.current}/${evenings.target}` : '–', icon: 'tabler:moon' },
   ]
 })
@@ -49,6 +56,9 @@ const doneTiles = computed(() => {
     { label: 'Uren gewerkt', value: `${dec1(d.hours).replace(',0', '')} u`, show: d.hours > 0 },
     { label: 'Gefactureerd', value: euroRound(d.invoiced), show: d.invoiced > 0 },
     { label: 'Offertes verstuurd', value: `${d.quotes}`, show: d.quotes > 0 },
+    { label: 'Nieuwe gesprekken', value: `${pipeline.value.talks}`, show: pipeline.value.talks > 0 },
+    { label: 'Leads benaderd', value: `${pipeline.value.approached}`, show: pipeline.value.approached > 0 },
+    { label: 'Nieuwe leads gespot', value: `${pipeline.value.spotted}`, show: pipeline.value.spotted > 0 },
     { label: 'Keer een routine gedaan', value: `${d.routinesDone}`, show: d.routinesDone > 0 },
     { label: 'Ochtenden op tijd op', value: `${mornings.done}/${mornings.of}`, show: mornings.of > 0 },
   ].filter(t => t.show)
