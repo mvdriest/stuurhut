@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DayItem } from '~/composables/useCalendar'
-import type { CalendarEvent, ISODate, Task } from '~/types'
+import type { CalendarEvent, ISODate, PlanBlock, Task } from '~/types'
 import { CATEGORIES, CATEGORY_ORDER, categoryOf, categoryOfTask, type Category } from '~/utils/category'
 
 useHead({ title: 'Week · Stuurhut' })
@@ -134,6 +134,31 @@ function fill(opt: 'task' | 'focus' | 'vrij') {
 const toGap = () => gapEl.value?.scrollIntoView({ behavior: prefersReduced() ? 'auto' : 'smooth', block: 'center' })
 onMounted(() => { if (route.hash === '#gat') nextTick(toGap) })
 const gapIcon = { task: 'tabler:checkbox', focus: 'tabler:bulb', vrij: 'tabler:heart' } as const
+// ---------- Plan mijn week (Stuurman, echte AI) ----------
+const ai = useStuurmanAI()
+const draft = ai.draft
+const planOpen = ref(!!draft.value || route.query.plan === '1')
+const wish = ref('')
+const planError = ref('')
+const ghostsOn = (d: ISODate) => (draft.value?.blocks ?? []).filter(b => b.date === d && D.matches(b.domain))
+const ghostCat = (b: PlanBlock) => categoryOfTask({ kind: b.kind, domain: b.domain } as Task)
+const draftDays = computed(() => days.value.map(d => ({ d, blocks: (draft.value?.blocks ?? []).filter(b => b.date === d) })).filter(x => x.blocks.length))
+const draftMin = computed(() => (draft.value?.blocks ?? []).reduce((s, b) => s + b.durationMin, 0))
+async function makePlan() {
+  planError.value = ''
+  try { await ai.planWeek(wish.value) }
+  catch (e) { planError.value = (e as Error).message }
+}
+function acceptPlan(keys?: string[]) {
+  const n = ai.acceptBlocks(keys)
+  toast.push({ text: n ? `${n} ${n === 1 ? 'blok staat' : 'blokken staan'} in je week.` : 'Er paste niets meer. Je agenda is intussen veranderd.' })
+  if (!draft.value) planOpen.value = false
+}
+function discardPlan() {
+  ai.discard()
+  planOpen.value = false
+}
+
 const gapCat = { task: 'taak', focus: 'focus', vrij: 'prive' } as const
 </script>
 
@@ -142,6 +167,7 @@ const gapCat = { task: 'taak', focus: 'focus', vrij: 'prive' } as const
     <PageHeader title="Week">
       <template #actions>
         <DomainSwitch class="w-[270px] xl:hidden" />
+        <button type="button" class="btn-primary !px-3.5" :aria-expanded="planOpen" @click="planOpen = !planOpen"><Icon name="tabler:steering-wheel" class="size-4" />Plan mijn week</button>
         <button type="button" class="btn-outline !px-3.5" @click="editor.open({ kind: 'taak', prefill: { } })"><Icon name="tabler:plus" class="size-4" />Taak</button>
         <button type="button" class="btn-outline !px-3.5" @click="editor.open({ kind: 'afspraak', prefill: { date: selected } })"><Icon name="tabler:plus" class="size-4" />Afspraak</button>
         <div class="hidden rounded-full bg-surface-3/70 p-1 lg:flex" role="tablist" aria-label="Weergave">
@@ -180,6 +206,76 @@ const gapCat = { task: 'taak', focus: 'focus', vrij: 'prive' } as const
           <span class="flex-1 text-[15px] leading-snug">{{ o.title }}</span>
           <Icon name="tabler:plus" class="size-4 shrink-0" />
         </button>
+      </div>
+    </section>
+
+    <!-- Plan mijn week -->
+    <section v-if="planOpen" class="card mb-4 p-4 md:p-5" aria-labelledby="plan-titel" aria-live="polite">
+      <div class="flex items-center gap-3">
+        <span class="grid size-9 shrink-0 place-items-center rounded-full bg-surface-2"><Icon name="tabler:steering-wheel" class="size-[18px]" /></span>
+        <h2 id="plan-titel" class="flex-1 text-[17px]">{{ draft ? 'Voorstel voor je week' : 'Plan mijn week' }}</h2>
+        <button type="button" class="icon-btn" aria-label="Sluiten" @click="planOpen = false"><Icon name="tabler:x" class="size-4" /></button>
+      </div>
+
+      <!-- Vraag -->
+      <div v-if="!draft" class="mt-3">
+        <label class="field">
+          <span class="field-label">Wat moet er deze week echt gebeuren? <span class="text-muted">(mag leeg)</span></span>
+          <textarea v-model="wish" rows="2" class="field-input" placeholder="Bijv. de offerte voor De Vries de deur uit, en woensdagmiddag vrij" :disabled="ai.planning.value" />
+        </label>
+        <p class="mt-2 text-[13.5px] text-muted">Stuurman kijkt naar je vrije tijd, deadlines, wat blijft liggen, je energie en je doelen. Niets komt in je agenda voordat jij het goedkeurt.</p>
+        <p v-if="planError" class="mt-2 flex items-center gap-2 text-[14px] text-copper-ink"><Icon name="tabler:alert-circle" class="size-4 shrink-0" />{{ planError }}</p>
+        <button type="button" class="btn-primary mt-3" :disabled="ai.planning.value" @click="makePlan">
+          <Icon :name="ai.planning.value ? 'tabler:loader-2' : 'tabler:steering-wheel'" class="size-4" :class="ai.planning.value ? 'animate-spin' : ''" />
+          {{ ai.planning.value ? 'Stuurman denkt na…' : 'Maak een voorstel' }}
+        </button>
+      </div>
+
+      <!-- Voorstel -->
+      <div v-else class="mt-3 space-y-4">
+        <p class="text-[15px] leading-relaxed">{{ draft.summary }}</p>
+        <div v-if="draft.top3.length">
+          <p class="field-label">Deze week telt</p>
+          <ol class="flex flex-wrap gap-2">
+            <li v-for="(t, i) in draft.top3" :key="t.itemId" class="chip border border-line bg-surface-2 !py-1.5"><span class="num text-muted">{{ i + 1 }}</span>{{ t.title }}</li>
+          </ol>
+        </div>
+        <p v-if="draft.fallback" class="flex gap-2 rounded-[12px] bg-surface-2 p-3 text-[14px]">
+          <Icon name="tabler:flag" class="mt-0.5 size-4 shrink-0 text-muted" />
+          <span><span class="text-muted">Als het tegenzit:</span> {{ draft.fallback.title }}. {{ draft.fallback.why }}</span>
+        </p>
+
+        <div v-for="g in draftDays" :key="g.d">
+          <div class="mb-1.5 flex items-center gap-2">
+            <p class="flex-1 text-[14px] capitalize text-muted">{{ relDay(g.d) }} {{ dayNum(g.d) }}</p>
+            <button v-if="draftDays.length > 1" type="button" class="text-[13px] text-muted underline hover:text-ink" @click="acceptPlan(g.blocks.map(b => b.key))">Deze dag inplannen</button>
+          </div>
+          <ul class="space-y-1.5">
+            <li v-for="b in g.blocks" :key="b.key" class="flex items-start gap-3 rounded-[14px] p-3 text-cat-ink" :class="CATEGORIES[ghostCat(b)].fill">
+              <span class="num w-[92px] shrink-0 pt-0.5 text-[14px]">{{ b.start }} – {{ fromMin(toMin(b.start) + b.durationMin) }}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-[15px] leading-snug">{{ b.firstStep ? `Eerste stap: ${b.title}` : b.title }}</span>
+                <span class="block text-[13px] text-cat-ink-muted">{{ b.why }}</span>
+              </span>
+              <button type="button" class="grid size-9 shrink-0 place-items-center rounded-full bg-white/60" :aria-label="`${b.title} niet inplannen`" title="Niet inplannen" @click="ai.removeBlock(b.key)"><Icon name="tabler:x" class="size-4" /></button>
+            </li>
+          </ul>
+        </div>
+        <p v-if="!draft.blocks.length" class="rounded-[14px] bg-surface-2 p-4 text-[14px] text-muted">Er staan geen blokken meer in het voorstel.</p>
+
+        <details v-if="draft.leftOut.length" class="text-[14px]">
+          <summary class="cursor-pointer text-muted">Bewust niet ingepland ({{ draft.leftOut.length }})</summary>
+          <ul class="mt-2 space-y-1">
+            <li v-for="l in draft.leftOut" :key="l.itemId"><span>{{ l.title }}</span><span class="text-muted"> · {{ l.why }}</span></li>
+          </ul>
+        </details>
+        <p v-if="draft.dropped" class="text-[13px] text-muted">{{ draft.dropped }} {{ draft.dropped === 1 ? 'voorstel paste' : 'voorstellen pasten' }} niet in je agenda en {{ draft.dropped === 1 ? 'is' : 'zijn' }} weggelaten.</p>
+
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="btn-primary" :disabled="!draft.blocks.length" @click="acceptPlan()"><Icon name="tabler:check" class="size-4" />Alles inplannen<span v-if="draft.blocks.length" class="num opacity-75">· {{ duration(draftMin) }}</span></button>
+          <button type="button" class="btn-outline" :disabled="ai.planning.value" @click="ai.discard()">Opnieuw</button>
+          <button type="button" class="btn-outline" @click="discardPlan">Weggooien</button>
+        </div>
       </div>
     </section>
 
@@ -232,6 +328,18 @@ const gapCat = { task: 'taak', focus: 'focus', vrij: 'prive' } as const
             <div v-else class="off-hours pointer-events-none absolute inset-0 rounded-[14px]" />
             <div v-if="d === today && nowMin() > DAY_START && nowMin() < DAY_END" class="pointer-events-none absolute inset-x-0 z-[2] h-0.5 bg-copper" :style="{ top: `${((nowMin() - DAY_START) / 60) * HOUR}px` }"><span class="absolute -left-1 -top-1 size-2.5 rounded-full bg-copper" /></div>
 
+            <!-- Conceptblokken van Stuurman -->
+            <div
+              v-for="b in ghostsOn(d)"
+              :key="b.key"
+              class="absolute inset-x-0.5 z-[1] overflow-hidden rounded-[12px] border-2 border-dashed border-cat-ink/40 px-2.5 py-2 text-cat-ink opacity-80"
+              :class="CATEGORIES[ghostCat(b)].fill"
+              :title="b.why"
+              :style="{ top: `${top(b.start) + 2}px`, height: `${height(b.start, fromMin(toMin(b.start) + b.durationMin))}px` }"
+            >
+              <span class="line-clamp-2 text-[13px] leading-tight">{{ b.title }}</span>
+              <span class="num mt-0.5 block text-[11.5px] text-cat-ink-muted">voorstel · {{ b.start }}</span>
+            </div>
             <template v-for="i in items(d)" :key="i.id">
               <button
                 v-if="isGap(i)"
@@ -338,6 +446,13 @@ const gapCat = { task: 'taak', focus: 'focus', vrij: 'prive' } as const
                 <p class="flex items-center gap-1.5 text-[13px] text-cat-ink-muted"><Icon :name="CATEGORIES[categoryOf(i)].icon" class="size-3.5" />{{ clientName(i.ref.clientId) ?? CATEGORIES[categoryOf(i)].label }}</p>
               </button>
               <button v-if="i.type === 'task'" type="button" class="grid size-11 shrink-0 place-items-center rounded-full bg-white/60" :aria-label="isDone(i) ? 'Weer open' : 'Gedaan'" @click="tasks.toggleDone(i.id)"><Icon name="tabler:check" class="size-5" /></button>
+            </div>
+          </li>
+          <li v-for="b in ghostsOn(selected)" :key="b.key" class="flex min-h-16 items-center gap-3 rounded-[16px] border-2 border-dashed border-cat-ink/40 px-4 py-3 text-cat-ink opacity-80" :class="CATEGORIES[ghostCat(b)].fill">
+            <p class="num w-12 shrink-0 text-[15px]">{{ b.start }}</p>
+            <div class="min-w-0 flex-1">
+              <p class="text-[16px] leading-snug">{{ b.title }}</p>
+              <p class="text-[13px] text-cat-ink-muted">Voorstel · {{ b.why }}</p>
             </div>
           </li>
           <li v-if="!items(selected).length" class="rounded-[16px] bg-surface p-5 text-[15px] text-muted">Niets gepland.</li>

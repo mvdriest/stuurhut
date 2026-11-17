@@ -122,7 +122,7 @@ function next() {
     rituals.saveWeekReview({ focus: focus.value.map(focusTitle), released })
     const close = state.value.routines.find(r => r.id === 'r3' && r.days.includes(fromISO(today).getDay()))
     if (close) R.mark(close.id, true)
-    toast.push({ text: isFriday ? 'Week afgesloten. Fijn weekend.' : 'Weekreview gedaan.' })
+    toast.push({ text: isFriday ? 'Week afgesloten. Fijn weekend.' : 'Weekreview gedaan.', to: '/week?plan=1', toLabel: 'Plan de week' })
     navigateTo('/')
     return
   }

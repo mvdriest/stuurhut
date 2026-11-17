@@ -52,7 +52,7 @@ onKeyStroke('Escape', () => { if (editor.req.value) editor.close() })
           <FormDeal v-if="editor.req.value.kind === 'akkoord'" ref="form" :id="editor.req.value.id" :prefill="editor.req.value.prefill" />
           <FormClient v-else-if="editor.req.value.kind === 'klant'" ref="form" :id="editor.req.value.id" :prefill="editor.req.value.prefill" />
           <FormRoutine v-else-if="editor.req.value.kind === 'routine'" ref="form" :id="editor.req.value.id" :prefill="editor.req.value.prefill" />
-          <FormTask v-else-if="editor.req.value.kind === 'taak'" ref="form" :id="editor.req.value.id" :prefill="editor.req.value.prefill" />
+          <FormTask v-else-if="editor.req.value.kind === 'taak'" :key="editor.req.value.id ?? 'nieuw'" ref="form" :id="editor.req.value.id" :prefill="editor.req.value.prefill" />
           <FormAssignment v-else-if="editor.req.value.kind === 'opdracht'" ref="form" :id="editor.req.value.id" :prefill="editor.req.value.prefill" />
           <FormLife v-else-if="editor.req.value.kind === 'admin'" ref="form" :id="editor.req.value.id" :prefill="editor.req.value.prefill" />
           <FormWorkHours v-else-if="editor.req.value.kind === 'werktijden'" ref="form" />

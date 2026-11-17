@@ -33,6 +33,56 @@ export interface Task {
   moved?: number
   /** Een eerste stap van een kwartier voor deze taak of opdracht */
   firstStepOf?: string
+  /** Subtaak van een grotere taak (die zelf niet in de agenda komt) */
+  parentId?: string
+  /** Volgorde binnen de hoofdtaak, vanaf 1 */
+  step?: number
+  /** User story van een opgedeelde taak */
+  story?: TaskStory
+}
+
+// ---------- Echte Stuurman (zelfde vorm als server/api/stuurman) ----------
+export interface BreakdownResult {
+  worthSplitting: boolean
+  reason: string
+  story: { asA: string, iWant: string, soThat: string } | null
+  criteria: string[]
+  subtasks: { title: string, durationMin: number, kind: Task['kind'], deep: boolean }[]
+}
+export interface PlanBlock {
+  /** Eigen id van het conceptblok */
+  key: string
+  itemId: string
+  title: string
+  date: ISODate
+  start: Time
+  durationMin: number
+  why: string
+  domain: Domain
+  kind: Task['kind']
+  /** Korter dan het hele item: alleen een eerste stap */
+  firstStep: boolean
+  deep: boolean
+  clientId?: string
+  assignmentId?: string
+}
+export interface PlanDraft {
+  summary: string
+  top3: { itemId: string, title: string }[]
+  blocks: PlanBlock[]
+  fallback: { itemId: string, title: string, why: string } | null
+  leftOut: { itemId: string, title: string, why: string }[]
+  /** Voorstellen die niet pasten in je agenda en dus zijn weggelaten */
+  dropped: number
+  at: string
+}
+
+export interface TaskStory {
+  asA: string
+  iWant: string
+  soThat: string
+  /** Wanneer is het klaar */
+  criteria: string[]
 }
 
 export interface CalendarEvent {

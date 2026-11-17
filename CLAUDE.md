@@ -164,6 +164,15 @@ them from future regeneration and drag-and-drop) or mark done (`klaar`) in
 (`server/api/weekplanning/taken/[id].patch.ts`). `DagindelingInstellingen.vue` +
 `useDagindeling.ts` manage the `dag_blokken` that AI-weekplanning schedules into.
 
+**Stuurman: opdelen en Plan mijn week** (V2-schermen, data in `v2_items`): `server/utils/stuurmanAi.ts`'s
+`askStructured()` asks Gemini for JSON that matches a Zod schema (`responseJsonSchema`, `v1beta`), trying
+`STUURMAN_MODELLEN` in order and once more after a short pause (404/429/5xx/time-out → next model).
+`POST /api/stuurman/breakdown` turns a task into a user story + subtasks (`FormTask.vue` asks by itself for
+tasks of 60+ min or focus; subtasks are ordinary `Task`s with `parentId`/`step`, the parent carries `story`
+and is never scheduled). `POST /api/stuurman/plan` (`useStuurmanAI().planWeek()`, button on `/week`) returns a
+*draft*: every block is re-checked client-side against free windows and `isFree`, and nothing is scheduled
+until the user accepts it.
+
 **Takenbord (kanban) per traject**: rather than a separate "tasks" table, the board in
 `app/pages/trajecten/[id].vue` is a kanban UI directly over the existing `subtaken` table
 (`server/api/taken/**`, `app/composables/useTaken.ts`) — the same table AI-weekplanning
